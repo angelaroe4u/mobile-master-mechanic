@@ -25,7 +25,6 @@ android/
 .DS_Store
 *.log
 npm-debug.*
-public/
 MobileMasterTech.jsx
 *.docx
 dist/
