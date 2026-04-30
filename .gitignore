@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# env files — NEVER commit API keys
+.env
+.env.local
+.env.production
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# native builds
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# misc
+.DS_Store
+*.log
+npm-debug.*

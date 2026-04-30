@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Mobile Master Mechanic",
+    "slug": "mobile-master-mechanic",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/images/apicon.jpg",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./src/assets/images/apicon.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0e1a"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.angiesautosupplies.mobilemastermechanic",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera access is used to photograph vehicle issues for diagnosis.",
+        "NSPhotoLibraryUsageDescription": "Photo library access lets you attach images to diagnoses."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/images/apicon.jpg",
+        "backgroundColor": "#0a0e1a"
+      },
+      "package": "com.angiesautosupplies.mobilemastermechanic",
+      "versionCode": 1,
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"]
+    },
+    "plugins": [
+      "expo-font",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9e4b55d3-3c21-4520-bea4-2ff45d8f77c6"
+      }
+    }
+  }
+}
