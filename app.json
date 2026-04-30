@@ -4,10 +4,10 @@
     "slug": "mobile-master-mechanic",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/images/apicon.jpg",
+    "icon": "./src/assets/images/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./src/assets/images/apicon.jpg",
+      "image": "./src/assets/images/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0e1a"
     },
@@ -23,12 +23,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/images/apicon.jpg",
+        "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#0a0e1a"
       },
       "package": "com.angiesautosupplies.mobilemastermechanic",
-      "versionCode": 1,
       "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"]
+    },
+    "web": {
+      "favicon": "./src/assets/images/favicon.png"
     },
     "plugins": [
       "expo-font",

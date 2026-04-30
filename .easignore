@@ -1,0 +1,60 @@
+# ─── EAS upload exclusions ─────────────────────────────────────
+# Goal: keep the upload tarball SMALL so Windows finishes deleting
+# the temp shallow-clone before EAS errors with EPERM.
+
+# git + node
+.git
+.gitignore
+node_modules
+package-lock.json
+
+# expo / metro caches
+.expo
+.expo-shared
+dist
+web-build
+
+# heavy / non-app stuff
+docs
+# scripts/  ## REMOVED — postinstall script lives here
+supabase
+public
+MobileMasterMechanic-test
+MobileMasterTech.jsx
+
+# documents and notes
+*.md
+!README.md
+*.docx
+*.pdf
+*.txt
+!app.json
+!eas.json
+!package.json
+!metro.config.js
+!.easignore
+!.env
+
+# OS / IDE noise
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+*.log
+*.tgz
+*.zip
+
+# secrets / build artifacts that shouldn't ship
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+google-play-service-account.json
+
+# build outputs
+android
+ios
+scripts
+src/hooks
+src/utils
