@@ -25,3 +25,11 @@ android/
 .DS_Store
 *.log
 npm-debug.*
+public/
+MobileMasterTech.jsx
+*.docx
+dist/
+.expo/
+MobileMasterMechanic-test/
+supabase/
+Mobile-Master-Mechanic-Launch-Guide.docx
