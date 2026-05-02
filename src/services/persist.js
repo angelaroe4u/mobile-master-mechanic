@@ -1,20 +1,15 @@
 // ─── PERSISTENCE HELPER ──────────────────────────────────────────────────────
 // Uses expo-file-system to write JSON files in the app's document directory.
-// We swapped from AsyncStorage to expo-file-system because async-storage's
-// native module wasn't reliably linking in EAS production builds, causing
-// silent save failures that looked like "data not persisting." File system
-// is a hard requirement for any Expo app and is guaranteed to be linked.
-//
-// Each "key" maps to a separate JSON file under <documentDirectory>/mmm_v1/.
-// clearAll() wipes the whole directory.
+// expo-file-system is a hard requirement for any Expo app and is guaranteed
+// to be linked. Each "key" maps to a separate JSON file under
+// <documentDirectory>/mmm_v1/. clearAll() wipes the whole directory.
 
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
 
-const DIR = FileSystem.documentDirectory + "mmm_v1/";
+const DIR = (FileSystem.documentDirectory || "") + "mmm_v1/";
 
 const fileFor = (key) => `${DIR}${key}.json`;
 
-// Make sure the directory exists before any read/write attempt.
 let _dirReady = null;
 const ensureDir = () => {
   if (!_dirReady) {
@@ -25,15 +20,13 @@ const ensureDir = () => {
           await FileSystem.makeDirectoryAsync(DIR, { intermediates: true });
         }
       } catch (e) {
-        console.warn("[persist] makeDirectoryAsync failed:", e?.message ?? e);
+        console.warn("[persist] ensureDir failed:", e?.message ?? e);
       }
     })();
   }
   return _dirReady;
 };
 ensureDir();
-
-// ─── LOAD / SAVE / DELETE ───────────────────────────────────────────────────
 
 export const loadJSON = async (key, fallback) => {
   try {
@@ -53,8 +46,10 @@ export const saveJSON = async (key, value) => {
   try {
     await ensureDir();
     await FileSystem.writeAsStringAsync(fileFor(key), JSON.stringify(value));
+    return { ok: true };
   } catch (e) {
     console.warn("[persist] save failed:", key, e?.message ?? e);
+    return { ok: false, error: e?.message ?? String(e) };
   }
 };
 
@@ -62,9 +57,7 @@ export const removeKey = async (key) => {
   try {
     await ensureDir();
     await FileSystem.deleteAsync(fileFor(key), { idempotent: true });
-  } catch (_e) {
-    /* ignore */
-  }
+  } catch (_e) { /* ignore */ }
 };
 
 export const clearAll = async () => {
@@ -81,26 +74,42 @@ export const clearAll = async () => {
   }
 };
 
-// ─── DEBUG / DIAGNOSTIC ─────────────────────────────────────────────────────
-// Used by the "Test Storage" button in Settings to verify persistence works.
-// Writes a value, reads it back, and returns a diagnostic result.
-
+// ─── DIAGNOSTIC: surfaces the EXACT failure point ─────────────────────────
 export const testStorage = async () => {
   const TEST_KEY = "_test_" + Date.now();
   const TEST_VALUE = { hello: "world", ts: Date.now() };
-  try {
-    await saveJSON(TEST_KEY, TEST_VALUE);
-    const read = await loadJSON(TEST_KEY, null);
-    await removeKey(TEST_KEY);
-    if (!read) return { ok: false, error: "Read returned null after write" };
-    if (read.hello !== "world") return { ok: false, error: "Read value didn't match what we wrote" };
-    // Also report the storage location for sanity
-    return {
-      ok: true,
-      message: "Storage works! Wrote and read a test value.",
-      location: DIR,
-    };
-  } catch (e) {
-    return { ok: false, error: e?.message ?? String(e) };
+
+  // Step 1: confirm document directory is available
+  if (!FileSystem.documentDirectory) {
+    return { ok: false, error: "FileSystem.documentDirectory is undefined — expo-file-system native module not linked properly" };
   }
+
+  // Step 2: try to write
+  const writeResult = await saveJSON(TEST_KEY, TEST_VALUE);
+  if (!writeResult.ok) {
+    return { ok: false, error: `WRITE failed: ${writeResult.error}` };
+  }
+
+  // Step 3: verify the file actually exists on disk
+  try {
+    const info = await FileSystem.getInfoAsync(fileFor(TEST_KEY));
+    if (!info.exists) {
+      return { ok: false, error: "File doesn't exist after write — write silently dropped" };
+    }
+  } catch (e) {
+    return { ok: false, error: `getInfoAsync after write threw: ${e?.message ?? e}` };
+  }
+
+  // Step 4: read back
+  const read = await loadJSON(TEST_KEY, null);
+  await removeKey(TEST_KEY);
+
+  if (!read) return { ok: false, error: "Read returned null even though file exists on disk" };
+  if (read.hello !== "world") return { ok: false, error: `Read wrong value: ${JSON.stringify(read)}` };
+
+  return {
+    ok: true,
+    message: "Storage works! Wrote and read a test value.",
+    location: DIR,
+  };
 };
