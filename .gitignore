@@ -32,3 +32,8 @@ dist/
 MobileMasterMechanic-test/
 supabase/
 Mobile-Master-Mechanic-Launch-Guide.docx
+ 
+# Build artifacts 
+*.aab 
+*.apk 
+builds/ 
