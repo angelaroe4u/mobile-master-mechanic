@@ -24,12 +24,37 @@ export default function DiagListScreen({ navigation, route }) {
   const title = filter === "open" ? "Open Jobs" : filter === "done" ? "Completed Jobs" : "All Jobs";
   const emptyMsg = filter === "open" ? "No open diagnoses. Start a new one!" : filter === "done" ? "No completed jobs yet." : "No diagnoses yet.";
 
-  // Reload diagnoses every time this screen comes into focus
+  // Reload diagnoses every time this screen comes into focus,
+  // and poll while any job is generating so the badge clears automatically.
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getDiagnoses().then((data) => { if (active) setDiags(data); });
-      return () => { active = false; };
+      let pollTimer = null;
+
+      const load = async () => {
+        const data = await getDiagnoses();
+        if (!active) return;
+        setDiags(data);
+
+        // If anything is still generating, poll every 3 seconds
+        const hasGenerating = data.some((d) => d.generating);
+        if (hasGenerating && !pollTimer) {
+          pollTimer = setInterval(async () => {
+            const fresh = await getDiagnoses();
+            if (active) setDiags(fresh);
+            if (!fresh.some((d) => d.generating)) {
+              clearInterval(pollTimer);
+              pollTimer = null;
+            }
+          }, 3000);
+        }
+      };
+
+      load();
+      return () => {
+        active = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
     }, [])
   );
 
@@ -59,14 +84,27 @@ export default function DiagListScreen({ navigation, route }) {
       ? diags.filter((d) => d.completed)
       : diags;
 
+  const handleGeneratingTap = (d) => {
+    const vLabel = [d.vehicle?.year, d.vehicle?.make, d.vehicle?.model].filter(Boolean).join(" ") || "your vehicle";
+    Alert.alert(
+      "Work Order Generating",
+      `Hank is still building the full work order for ${vLabel}. This usually takes 30–60 seconds. You can check back in a moment, or open the chat to watch progress.`,
+      [
+        { text: "OK", style: "cancel" },
+        { text: "Open Chat", onPress: () => navigation.navigate("DiagChat", { diag: d }) },
+      ]
+    );
+  };
+
   const renderItem = ({ item: d }) => {
     const vLabel = [d.vehicle?.year, d.vehicle?.make, d.vehicle?.model].filter(Boolean).join(" ") || "Unknown vehicle";
     const lastMsg = d.transcript?.filter((m) => m.role === "assistant").slice(-1)[0]?.content || "";
+    const isGenerating = d.generating === true;
 
     return (
       <TouchableOpacity
-        onPress={() => navigation.navigate("DiagChat", { diag: d })}
-        style={styles.card}
+        onPress={() => isGenerating ? handleGeneratingTap(d) : navigation.navigate("DiagChat", { diag: d })}
+        style={[styles.card, isGenerating && styles.cardGenerating]}
         activeOpacity={0.8}
       >
         <View style={styles.cardTop}>
@@ -86,20 +124,26 @@ export default function DiagListScreen({ navigation, route }) {
             <Badge color={d.confidence >= 95 ? COLORS.green : d.confidence >= 70 ? COLORS.accent : COLORS.blue}>
               {d.confidence || 0}%
             </Badge>
-            {d.completed
-              ? <Badge color={COLORS.green}>Done</Badge>
-              : (d.transcript?.length > 0
-                  ? <Badge color={COLORS.accent}>Diagnosis</Badge>
-                  : <Badge color={COLORS.textM}>New</Badge>
-                )}
+            {isGenerating
+              ? <Badge color={COLORS.accent}>Generating...</Badge>
+              : d.completed
+                ? <Badge color={COLORS.green}>Done</Badge>
+                : (d.transcript?.length > 0
+                    ? <Badge color={COLORS.accent}>Diagnosis</Badge>
+                    : <Badge color={COLORS.textM}>New</Badge>
+                  )}
           </View>
         </View>
-        {lastMsg ? (
+        {isGenerating ? (
+          <Text style={styles.generatingText}>
+            Hank is building the work order with parts and steps...
+          </Text>
+        ) : lastMsg ? (
           <Text numberOfLines={2} style={styles.preview}>
             {lastMsg.slice(0, 120)}{lastMsg.length > 120 ? "..." : ""}
           </Text>
         ) : null}
-        {d.diagnosis && (
+        {d.diagnosis && !isGenerating && (
           <View style={styles.diagBadges}>
             <Badge color={d.diagnosis.severity === "critical" ? COLORS.red : d.diagnosis.severity === "high" ? COLORS.accent : COLORS.green}>
               {d.diagnosis.severity?.toUpperCase()} SEVERITY
@@ -198,4 +242,16 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: COLORS.textM, fontFamily: FONTS.body },
   trashBtn: { padding: 6, marginRight: 4 },
   trashIcon: { fontSize: 18 },
+  cardGenerating: {
+    borderColor: COLORS.accent + "80",
+    borderWidth: 2,
+    borderStyle: "dashed",
+  },
+  generatingText: {
+    fontSize: 12,
+    color: COLORS.accent,
+    marginTop: 8,
+    fontStyle: "italic",
+    fontFamily: FONTS.body,
+  },
 });

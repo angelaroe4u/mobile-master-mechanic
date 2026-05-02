@@ -22,6 +22,7 @@ const FUNCTION_NAME = "hank-chat";
 
 const SENTINEL_OPEN = "<<<HANK_DATA>>>";
 const SENTINEL_CLOSE = "<<<END_HANK_DATA>>>";
+const FETCH_TIMEOUT_MS = 90_000; // 90 seconds — final diagnosis can be big
 
 // ─── PUBLIC API ──────────────────────────────────────────────────────────────
 export const callHank = async (messages, system) => {
@@ -65,15 +66,25 @@ const tryOnce = async (messages, system) => {
 
   let rawText = "";
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ messages, system }),
-    });
+    // ── Timeout via AbortController ─────────────────────────────────────
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ messages, system }),
+      });
+    } finally {
+      clearTimeout(timer);
+    }
 
     console.log("[Hank] Response status:", res.status);
 
@@ -93,6 +104,11 @@ const tryOnce = async (messages, system) => {
     rawText = data?.content?.[0]?.text || "";
     console.log("[Hank] Got response, text length:", rawText.length);
   } catch (err) {
+    // ── Distinguish timeout from other network errors ──────────────────
+    if (err.name === "AbortError") {
+      console.error("[Hank] Request timed out after", FETCH_TIMEOUT_MS / 1000, "seconds");
+      return { ok: true, value: makeFallback("That took longer than expected — I'm working on a big answer. Try asking me to summarize or just say \"continue\".") };
+    }
     console.error("[Hank] Network error:", err);
     console.error("[Hank] Error name:", err.name, "message:", err.message);
     console.error("[Hank] Full URL was:", url);

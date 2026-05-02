@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   KeyboardAvoidingView, Platform, StyleSheet, Animated,
-  Image, Linking,
+  Image, Linking, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, FONTS, BORDER_RADIUS } from "../constants/theme";
@@ -138,6 +138,95 @@ export default function DiagChatScreen({ navigation, route }) {
     });
   }, [linkedVehicleId]);
 
+  // ── Progress sync: when returning from work order with completed steps ──
+  const fromWorkOrder = route.params?.fromWorkOrder;
+  const [progressSynced, setProgressSynced] = useState(false);
+
+  useEffect(() => {
+    if (!fromWorkOrder || progressSynced || !savedDiag?.done) return;
+
+    // Build a summary of what's been completed
+    const checkedSteps = savedDiag.savedCheckedSteps || {};
+    const arrivedParts = savedDiag.savedArrivedParts || {};
+    const wos = savedDiag.diagnosis?.workOrders || [];
+
+    const completedItems = [];
+    const pendingItems = [];
+
+    wos.forEach((wo, wi) => {
+      (wo.steps || []).forEach((step, si) => {
+        if (checkedSteps[`${wi}-${si}`]) {
+          completedItems.push(step);
+        } else {
+          pendingItems.push(step);
+        }
+      });
+    });
+
+    const arrivedPartsList = [];
+    const pendingPartsList = [];
+    wos.forEach((wo, wi) => {
+      (wo.parts || []).forEach((part, pi) => {
+        if (arrivedParts[`${wi}-${pi}`]) {
+          arrivedPartsList.push(part.name);
+        } else {
+          pendingPartsList.push(part.name);
+        }
+      });
+    });
+
+    // Only prompt if there's meaningful progress to share
+    if (completedItems.length === 0 && arrivedPartsList.length === 0) {
+      setProgressSynced(true);
+      return;
+    }
+
+    // Ask the user if they want to update Hank
+    Alert.alert(
+      "Update Hank?",
+      `You've completed ${completedItems.length} step${completedItems.length !== 1 ? "s" : ""} and ${arrivedPartsList.length} part${arrivedPartsList.length !== 1 ? "s" : ""} have arrived. Should I let Hank know so he can help with what's left?`,
+      [
+        {
+          text: "Yes, update Hank",
+          onPress: () => {
+            // Build a context message for Hank
+            let progressMsg = "UPDATE FROM THE WORK ORDER:\n";
+            if (completedItems.length > 0) {
+              progressMsg += `\nSteps the user has COMPLETED:\n${completedItems.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}`;
+            }
+            if (arrivedPartsList.length > 0) {
+              progressMsg += `\nParts that have ARRIVED: ${arrivedPartsList.join(", ")}`;
+            }
+            if (pendingItems.length > 0) {
+              progressMsg += `\nSteps STILL TODO:\n${pendingItems.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}`;
+            }
+            if (pendingPartsList.length > 0) {
+              progressMsg += `\nParts STILL NEEDED: ${pendingPartsList.join(", ")}`;
+            }
+            progressMsg += "\n\nThe user is back in the chat and may have questions about the remaining steps. Help them with where they left off.";
+
+            // Inject as a user message so Hank sees it in context
+            const syncUserMsg = { role: "user", content: progressMsg };
+            const syncAssistantMsg = {
+              role: "assistant",
+              content: `Got it — I can see you've knocked out ${completedItems.length} step${completedItems.length !== 1 ? "s" : ""} so far. Nice work! What do you need help with next?`,
+            };
+            setDiag((d) => ({
+              ...d,
+              transcript: [...d.transcript, syncAssistantMsg],
+              apiMessages: [...d.apiMessages, syncUserMsg, syncAssistantMsg],
+            }));
+            setProgressSynced(true);
+          },
+        },
+        {
+          text: "No, just chat",
+          onPress: () => setProgressSynced(true),
+        },
+      ]
+    );
+  }, [fromWorkOrder, progressSynced, savedDiag]);
+
   // Pulse animation while Hank is thinking
   useEffect(() => {
     if (loading) {
@@ -242,13 +331,98 @@ export default function DiagChatScreen({ navigation, route }) {
       // If neither yes nor no, fall through to normal send
     }
 
-    setLoading(true);
-
     const userMsg = { role: "user", content: text.trim() };
     const newTranscript = [...diag.transcript, userMsg];
     const newApi = [...diag.apiMessages, userMsg];
     setDiag((d) => ({ ...d, transcript: newTranscript }));
 
+    // ── Detect finalization request ───────────────────────────────────────
+    // If confidence is high and the user (or Accept button) asked to finalize,
+    // give instant feedback and run the API in the background so the user
+    // doesn't stare at a spinner.
+    const isFinalizing =
+      (diag.confidence >= 85 || forceAccepted) &&
+      /finalize|generate.*work.?order|wrap.?up|accept/i.test(text);
+
+    if (isFinalizing) {
+      // Instant: show a message, mark the job as "generating", clear spinner
+      const holdMsg = {
+        role: "assistant",
+        content: "On it — I'm building your full work order with parts and steps now. You can keep browsing; I'll have it ready in a moment.",
+      };
+      const generating = {
+        ...diag,
+        transcript: [...newTranscript, holdMsg],
+        apiMessages: newApi,
+        generating: true,
+        forceAccepted: forceAccepted || diag.forceAccepted || false,
+      };
+      setDiag(generating);
+      saveDiagnosis(generating);
+      setLoading(false); // clear spinner immediately
+
+      // ── Background API call ──────────────────────────────────────────
+      (async () => {
+        try {
+          const system = buildHankSystem(diag.vehicle, diag.transcript, diag.tools, vehicleHistoryCtx);
+          const parsed = await callHank(newApi, system);
+
+          const assistantMsg = { role: "assistant", content: parsed.message || "Your work order is ready." };
+
+          const updatedVehicle = parsed.vehicleUpdate && typeof parsed.vehicleUpdate === "object"
+            ? { ...(diag.vehicle || {}), ...Object.fromEntries(Object.entries(parsed.vehicleUpdate).filter(([, v]) => v)) }
+            : diag.vehicle;
+
+          const rawConf = parsed.confidence;
+          const safeConf = (rawConf && rawConf > 0) ? rawConf : diag.confidence;
+
+          const finalDiag = {
+            ...generating,
+            transcript: [...newTranscript, holdMsg, assistantMsg],
+            apiMessages: [...newApi, assistantMsg],
+            vehicle: updatedVehicle,
+            tools: parsed.toolsIdentified || diag.tools,
+            confidence: safeConf,
+            done: parsed.done || false,
+            diagnosis: parsed.done && parsed.diagnosis ? parsed.diagnosis : diag.diagnosis,
+            keyTerms: [...(diag.keyTerms || []), ...(parsed.keyTerms || [])],
+            linkedVehicleId: linkedVehicleId || diag.linkedVehicleId || null,
+            forceAccepted: forceAccepted || diag.forceAccepted || false,
+            generating: false, // ← clear the flag
+          };
+
+          setDiag(finalDiag);
+          saveDiagnosis(finalDiag);
+
+          if (parsed.mood) {
+            setCurrentMood(parsed.mood);
+            animateMoodChange();
+          }
+          if (parsed.supplyTip) setSupplyTip(parsed.supplyTip);
+
+          if (parsed.done && parsed.diagnosis) {
+            try { await awardPoints(POINTS.diagnosisCompleted); } catch (_e) {}
+            // Auto-navigate to the work order screen
+            navigation.navigate("DiagResult", { diag: finalDiag });
+          }
+        } catch (e) {
+          console.error("[Hank] Background finalization error:", e);
+          const errMsg = { role: "assistant", content: "I ran into an issue building the work order. Tap here to try again, or type \"generate work order\"." };
+          const errDiag = {
+            ...generating,
+            transcript: [...generating.transcript, errMsg],
+            generating: false,
+          };
+          setDiag(errDiag);
+          saveDiagnosis(errDiag);
+        }
+      })();
+
+      return; // ← exit send() immediately — user sees instant feedback
+    }
+
+    // ── Normal (non-finalizing) message flow ─────────────────────────────
+    setLoading(true);
     try {
       const system = buildHankSystem(diag.vehicle, diag.transcript, diag.tools, vehicleHistoryCtx);
       const parsed = await callHank(newApi, system);
@@ -266,8 +440,6 @@ export default function DiagChatScreen({ navigation, route }) {
 
       if (parsed.supplyTip) setSupplyTip(parsed.supplyTip);
 
-      // Use real confidence from Hank — but ignore 0 when we already have
-      // a real value (0 comes from error/fallback responses, not real drops)
       const rawConf = parsed.confidence;
       const safeConf = (rawConf && rawConf > 0) ? rawConf : diag.confidence;
 
@@ -289,16 +461,19 @@ export default function DiagChatScreen({ navigation, route }) {
       saveDiagnosis(updated);
 
       if (parsed.done && parsed.diagnosis) {
-        await awardPoints(POINTS.diagnosisCompleted);
-        // Don't auto-navigate — let the user read Hank's final response
-        // The "View Work Order" button will appear in the chat footer
+        try {
+          await awardPoints(POINTS.diagnosisCompleted);
+        } catch (pointsErr) {
+          console.warn("[Hank] awardPoints failed (non-fatal):", pointsErr);
+        }
       }
     } catch (e) {
+      console.error("[Hank] DiagChat send error:", e);
       const errMsg = { role: "assistant", content: "Connection issue — please try again." };
       setDiag((d) => ({ ...d, transcript: [...newTranscript, errMsg] }));
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   // Whether the chat should use green styling (95%+ confidence)
@@ -430,15 +605,15 @@ export default function DiagChatScreen({ navigation, route }) {
                 </View>
               )}
 
-              {/* ── Diagnosis complete → View Work Order ── */}
+              {/* ── Diagnosis complete → Return to Work Order ── */}
               {diag.done && diag.diagnosis ? (
                 <View>
                   <TouchableOpacity
                     onPress={() => navigation.navigate("DiagResult", { diag })}
                     style={styles.viewWorkOrderCta}
                   >
-                    <Text style={styles.viewWorkOrderTitle}>✓ DIAGNOSIS COMPLETE</Text>
-                    <Text style={styles.viewWorkOrderSub}>View Work Order →</Text>
+                    <Text style={styles.viewWorkOrderTitle}>← RETURN TO WORK ORDER</Text>
+                    <Text style={styles.viewWorkOrderSub}>Your work order is ready. Tap to go back.</Text>
                   </TouchableOpacity>
                   <Text style={styles.safetyBlurb}>
                     ⚠ Verify all suggested info against your vehicle's manual before use. AI guidance is not professional advice.

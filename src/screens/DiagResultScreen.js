@@ -338,10 +338,10 @@ export default function DiagResultScreen({ navigation, route }) {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.navigate("MainTabs")}>
           <Text style={styles.backBtn}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Diagnosis Results</Text>
+        <Text style={styles.headerTitle}>Work Order</Text>
         <TouchableOpacity onPress={handleShare}>
           <Text style={styles.shareBtn}>📤</Text>
         </TouchableOpacity>
@@ -399,14 +399,14 @@ export default function DiagResultScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* Re-diagnose */}
+        {/* Return to Diagnosis chat */}
         <Button
           full
           variant="ghost"
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("DiagChat", { diag, fromWorkOrder: true })}
           style={{ marginBottom: 16 }}
         >
-          🔄 Continue / Re-Diagnose
+          💬 Return to Diagnosis — Ask Hank Questions
         </Button>
 
         {/* YouTube help link (Feature #7) */}
@@ -689,6 +689,24 @@ export default function DiagResultScreen({ navigation, route }) {
           >
             💾 Save Vehicle & Work Orders
           </Button>
+        )}
+
+        {/* ── Update Work Order ── */}
+        {!diag.completed && (
+          <View style={styles.updateSection}>
+            <Text style={styles.updateSectionTitle}>NEED CHANGES?</Text>
+            <Text style={styles.updateSectionSub}>
+              Return to the diagnosis chat to ask Hank about alternative parts, different approaches, or follow-up questions. Your work order will update automatically.
+            </Text>
+            <Button
+              full
+              variant="accent"
+              style={{ marginTop: 10 }}
+              onPress={() => navigation.navigate("DiagChat", { diag, fromWorkOrder: true })}
+            >
+              💬 Ask Hank to Update Work Order
+            </Button>
+          </View>
         )}
 
         {/* Safety disclaimers at bottom */}
@@ -1249,6 +1267,30 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: 13, color: COLORS.textM, fontFamily: FONTS.body,
+  },
+
+  // ── Update Work Order section
+  updateSection: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.accent + "40",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+  },
+  updateSectionTitle: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: COLORS.accent,
+    fontFamily: FONTS.heading,
+    letterSpacing: 2,
+    marginBottom: 6,
+  },
+  updateSectionSub: {
+    fontSize: 12,
+    color: COLORS.textM,
+    lineHeight: 18,
+    fontFamily: FONTS.body,
   },
 
   // ── Bottom Dashboard

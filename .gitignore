@@ -37,3 +37,8 @@ Mobile-Master-Mechanic-Launch-Guide.docx
 *.aab 
 *.apk 
 builds/ 
+
+# Build artifacts
+*.aab
+*.apk
+builds/
