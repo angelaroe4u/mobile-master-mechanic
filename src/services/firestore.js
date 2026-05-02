@@ -49,6 +49,7 @@ export const saveDiagnosis = async (diag) => {
     mockDiagnoses.unshift({ ...safeDiag, userId: user?.uid, startedAt: safeStartedAt || new Date().toISOString() });
   }
   console.log("[DEV] saveDiagnosis:", safeDiag.id);
+  await persistDiagnoses();
 };
 
 export const getDiagnoses = async () => {
@@ -68,6 +69,7 @@ export const deleteDiagnosis = async (id) => {
   const [item] = mockDiagnoses.splice(idx, 1);
   await moveToTrash(TRASH.DIAGNOSIS, item);
   await persistDiagnoses();
+
   return true;
 };
 
@@ -75,6 +77,7 @@ export const saveVehicle = async (vehicle) => {
   await ensureLoaded();
   mockVehicles.push(vehicle);
   console.log("[DEV] saveVehicle:", vehicle);
+  await persistVehicles();
 };
 
 export const getVehicles = async () => {
@@ -90,11 +93,13 @@ export const getLeaderboard = async (limit = 50) => {
 export const submitFeedback = async (feedback) => {
   await ensureLoaded();
   console.log("[DEV] submitFeedback:", feedback);
+  await persistDiagnoses();
 };
 
 export const submitBugReport = async (report) => {
   await ensureLoaded();
   console.log("[DEV] submitBugReport:", report);
+  await persistDiagnoses();
 };
 
 // ─── RESET ───────────────────────────────────────────────────────────────────
@@ -114,5 +119,6 @@ export const restoreDiagnosis = async (diag) => {
   await ensureLoaded();
   mockDiagnoses.unshift({ ...diag });
   await persistDiagnoses();
+
   return diag;
 };

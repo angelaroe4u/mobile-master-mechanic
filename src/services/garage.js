@@ -81,6 +81,7 @@ export const createVehicle = async (vehicleInfo) => {
   vehicles.unshift(vehicle);
   console.log("[DEV] createVehicle:", vehicle.id, vehicle.year, vehicle.make, vehicle.model);
   await persistVehicles();
+
   return vehicle;
 };
 
@@ -89,9 +90,9 @@ export const updateVehicle = async (id, updates) => {
   const idx = vehicles.findIndex((v) => v.id === id);
   if (idx >= 0) {
     vehicles[idx] = { ...vehicles[idx], ...updates, updatedAt: new Date().toISOString() };
+    await persistVehicles();
     return vehicles[idx];
   }
-  await persistVehicles();
   return null;
 };
 
@@ -102,6 +103,7 @@ export const deleteVehicle = async (id) => {
   const [item] = vehicles.splice(idx, 1);
   await moveToTrash(TRASH.VEHICLE, item);
   await persistVehicles();
+
   return true;
 };
 
@@ -143,6 +145,7 @@ export const addServiceRecord = async (vehicleId, record) => {
 
   console.log("[DEV] addServiceRecord:", vehicleId, serviceRecord.id);
   await persistVehicles();
+
   return serviceRecord;
 };
 
@@ -163,6 +166,7 @@ export const updateServiceRecord = async (vehicleId, recordId, updates) => {
   vehicles[vIdx].serviceRecords[rIdx] = { ...vehicles[vIdx].serviceRecords[rIdx], ...updates };
   vehicles[vIdx].updatedAt = new Date().toISOString();
   await persistVehicles();
+
   return vehicles[vIdx].serviceRecords[rIdx];
 };
 
@@ -175,27 +179,33 @@ export const addVehiclePhoto = async (vehicleId, photoUri, caption = "") => {
   vehicles[idx].photos.push(photo);
   vehicles[idx].updatedAt = new Date().toISOString();
   await persistVehicles();
+
   return photo;
 };
 
 // ─── NOTES ──────────────────────────────────────────────────────────────────
 export const addVehicleNote = async (vehicleId, text) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   const note = { id: genId(), text, createdAt: new Date().toISOString() };
   vehicles[idx].notes.unshift(note);
   vehicles[idx].updatedAt = new Date().toISOString();
-  return note;
-};
+  await persistVehicles();
+
+  return note;};
 
 export const deleteVehicleNote = async (vehicleId, noteId) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return;
   vehicles[idx].notes = vehicles[idx].notes.filter((n) => n.id !== noteId);
+  await persistVehicles();
 };
 
 // ─── OIL CHANGES ───────────────────────────────────────────────────────────
 export const addOilChange = async (vehicleId, entry) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   const record = {
@@ -212,8 +222,9 @@ export const addOilChange = async (vehicleId, entry) => {
   vehicles[idx].oilChanges.unshift(record);
   vehicles[idx].updatedAt = new Date().toISOString();
   if (entry.mileage) vehicles[idx].mileage = entry.mileage;
-  return record;
-};
+  await persistVehicles();
+
+  return record;};
 
 export const getOilChanges = async (vehicleId) => {
   const v = vehicles.find((v) => v.id === vehicleId);
@@ -222,24 +233,29 @@ export const getOilChanges = async (vehicleId) => {
 
 // ─── TIRE INFO ─────────────────────────────────────────────────────────────
 export const updateTireInfo = async (vehicleId, tireInfo) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   vehicles[idx].tireInfo = { ...(vehicles[idx].tireInfo || {}), ...tireInfo };
   vehicles[idx].updatedAt = new Date().toISOString();
-  return vehicles[idx].tireInfo;
-};
+  await persistVehicles();
+
+  return vehicles[idx].tireInfo;};
 
 // ─── FLUIDS ────────────────────────────────────────────────────────────────
 export const updateFluids = async (vehicleId, fluids) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   vehicles[idx].fluids = { ...(vehicles[idx].fluids || {}), ...fluids };
   vehicles[idx].updatedAt = new Date().toISOString();
-  return vehicles[idx].fluids;
-};
+  await persistVehicles();
+
+  return vehicles[idx].fluids;};
 
 // ─── FREQUENT PARTS ────────────────────────────────────────────────────────
 export const addFrequentPart = async (vehicleId, part) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   const record = {
@@ -256,10 +272,12 @@ export const addFrequentPart = async (vehicleId, part) => {
   if (!vehicles[idx].frequentParts) vehicles[idx].frequentParts = [];
   vehicles[idx].frequentParts.push(record);
   vehicles[idx].updatedAt = new Date().toISOString();
-  return record;
-};
+  await persistVehicles();
+
+  return record;};
 
 export const updateFrequentPart = async (vehicleId, partId, updates) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   const parts = vehicles[idx].frequentParts || [];
@@ -267,13 +285,16 @@ export const updateFrequentPart = async (vehicleId, partId, updates) => {
   if (pi < 0) return null;
   vehicles[idx].frequentParts[pi] = { ...parts[pi], ...updates };
   vehicles[idx].updatedAt = new Date().toISOString();
-  return vehicles[idx].frequentParts[pi];
-};
+  await persistVehicles();
+
+  return vehicles[idx].frequentParts[pi];};
 
 export const deleteFrequentPart = async (vehicleId, partId) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return;
   vehicles[idx].frequentParts = (vehicles[idx].frequentParts || []).filter((p) => p.id !== partId);
+  await persistVehicles();
 };
 
 // ─── MAINTENANCE SCHEDULE ──────────────────────────────────────────────────
@@ -359,6 +380,7 @@ export const FLUID_INTERVALS = {
 // ─── MAINTENANCE LOGGING ──────────────────────────────────────────────────
 // Log a maintenance item (tire rotation, brake inspection, air filter, etc.)
 export const addMaintenanceRecord = async (vehicleId, record) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   if (!vehicles[idx].maintenanceRecords) vehicles[idx].maintenanceRecords = [];
@@ -375,8 +397,9 @@ export const addMaintenanceRecord = async (vehicleId, record) => {
   vehicles[idx].maintenanceRecords.unshift(entry);
   vehicles[idx].updatedAt = new Date().toISOString();
   if (record.mileage) vehicles[idx].mileage = record.mileage;
-  return entry;
-};
+  await persistVehicles();
+
+  return entry;};
 
 export const getMaintenanceSuggestions = async (vehicleId) => {
   const v = vehicles.find((v) => v.id === vehicleId);
@@ -516,6 +539,7 @@ export const getMaintenanceSuggestions = async (vehicleId) => {
 
 // ─── REMINDERS ─────────────────────────────────────────────────────────────
 export const addReminder = async (vehicleId, reminder) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   const record = {
@@ -531,8 +555,9 @@ export const addReminder = async (vehicleId, reminder) => {
   if (!vehicles[idx].reminders) vehicles[idx].reminders = [];
   vehicles[idx].reminders.push(record);
   vehicles[idx].updatedAt = new Date().toISOString();
-  return record;
-};
+  await persistVehicles();
+
+  return record;};
 
 export const getReminders = async (vehicleId) => {
   const v = vehicles.find((v) => v.id === vehicleId);
@@ -557,10 +582,12 @@ export const getDueReminders = async () => {
 };
 
 export const dismissReminder = async (vehicleId, reminderId) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return;
   const ri = (vehicles[idx].reminders || []).findIndex((r) => r.id === reminderId);
   if (ri >= 0) vehicles[idx].reminders[ri].dismissed = true;
+  await persistVehicles();
 };
 
 // ─── PRINTABLE SERVICE RECORD HTML ─────────────────────────────────────────
