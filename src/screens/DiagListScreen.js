@@ -1,20 +1,22 @@
 // ─── DIAGNOSIS LIST SCREEN ───────────────────────────────────────────────────
 import React, { useState, useCallback } from "react";
 import {
-  View, Text, TouchableOpacity, FlatList, StyleSheet,
+  View, Text, TouchableOpacity, FlatList, StyleSheet, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS, FONTS } from "../constants/theme";
 import { useColors } from "../context/ThemeContext";
-import { getDiagnoses } from "../services/firestore";
+import { getDiagnoses, deleteDiagnosis } from "../services/firestore";
 import Badge from "../components/Badge";
 
 const fmtDate = (iso) => {
   if (!iso) return "";
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) +
-    " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit"   trashBtn: { padding: 6, marginRight: 4 },
+  trashIcon: { fontSize: 18 },
+});
 };
 
 export default function DiagListScreen({ navigation, route }) {
@@ -32,6 +34,26 @@ export default function DiagListScreen({ navigation, route }) {
       return () => { active = false; };
     }, [])
   );
+
+  const handleDelete = (d) => {
+    const vLabel = [d.vehicle?.year, d.vehicle?.make, d.vehicle?.model].filter(Boolean).join(" ") || "this diagnosis";
+    Alert.alert(
+      "Move to Trash?",
+      `${vLabel} will be moved to Trash and permanently deleted in 14 days. You can restore it from Settings → Trash before then.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Move to Trash",
+          style: "destructive",
+          onPress: async () => {
+            await deleteDiagnosis(d.id);
+            const data = await getDiagnoses();
+            setDiags(data);
+          },
+        },
+      ]
+    );
+  };
 
   const filtered = filter === "open"
     ? diags.filter((d) => !d.completed)
@@ -54,11 +76,24 @@ export default function DiagListScreen({ navigation, route }) {
             <Text style={styles.vehicleName}>{vLabel}</Text>
             <Text style={styles.date}>{fmtDate(d.startedAt)}</Text>
           </View>
+          <TouchableOpacity
+            onPress={() => handleDelete(d)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.trashBtn}
+            accessibilityLabel="Move to Trash"
+          >
+            <Text style={styles.trashIcon}>🗑️</Text>
+          </TouchableOpacity>
           <View style={styles.badges}>
             <Badge color={d.confidence >= 95 ? COLORS.green : d.confidence >= 70 ? COLORS.accent : COLORS.blue}>
               {d.confidence || 0}%
             </Badge>
-            {d.completed && <Badge color={COLORS.green}>Done</Badge>}
+            {d.completed
+              ? <Badge color={COLORS.green}>Done</Badge>
+              : (d.transcript?.length > 0
+                  ? <Badge color={COLORS.accent}>Diagnosis</Badge>
+                  : <Badge color={COLORS.textM}>New</Badge>
+                )}
           </View>
         </View>
         {lastMsg ? (

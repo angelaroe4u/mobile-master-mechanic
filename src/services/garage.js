@@ -3,6 +3,8 @@
 // DEV MODE: in-memory storage. Production: Firestore/Supabase.
 
 import { getCurrentUser } from "./firebase";
+import { loadJSON, saveJSON } from "./persist";
+import { moveToTrash, TYPES as TRASH } from "./trash";
 
 // ─── IN-MEMORY STORE ────────────────────────────────────────────────────────
 // Each vehicle: { id, userId, year, make, model, trim, mileage, transmission,
@@ -12,6 +14,20 @@ import { getCurrentUser } from "./firebase";
 //                       vehicle:{...}, photos:[] }
 
 let vehicles = [];
+let _vehiclesLoaded = null;
+
+// Lazy-load on first call. Returns a promise that resolves once vehicles are populated from AsyncStorage.
+const ensureLoaded = () => {
+  if (!_vehiclesLoaded) {
+    _vehiclesLoaded = loadJSON("garage_vehicles", []).then((v) => { vehicles = v; });
+  }
+  return _vehiclesLoaded;
+};
+
+const persistVehicles = () => saveJSON("garage_vehicles", vehicles);
+
+// Kick off the load eagerly so synchronous reads (e.g. findMatchingVehicles) get data fast.
+ensureLoaded();
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 
@@ -34,14 +50,17 @@ export const findMatchingVehicles = (vehicleInfo) => {
 
 // ─── CRUD ───────────────────────────────────────────────────────────────────
 export const getVehicles = async () => {
+  await ensureLoaded();
   return [...vehicles].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 };
 
 export const getVehicleById = async (id) => {
+  await ensureLoaded();
   return vehicles.find((v) => v.id === id) || null;
 };
 
 export const createVehicle = async (vehicleInfo) => {
+  await ensureLoaded();
   const user = getCurrentUser();
   const vehicle = {
     id: genId(),
@@ -61,24 +80,34 @@ export const createVehicle = async (vehicleInfo) => {
   };
   vehicles.unshift(vehicle);
   console.log("[DEV] createVehicle:", vehicle.id, vehicle.year, vehicle.make, vehicle.model);
+  await persistVehicles();
   return vehicle;
 };
 
 export const updateVehicle = async (id, updates) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === id);
   if (idx >= 0) {
     vehicles[idx] = { ...vehicles[idx], ...updates, updatedAt: new Date().toISOString() };
     return vehicles[idx];
   }
+  await persistVehicles();
   return null;
 };
 
 export const deleteVehicle = async (id) => {
-  vehicles = vehicles.filter((v) => v.id !== id);
+  await ensureLoaded();
+  const idx = vehicles.findIndex((v) => v.id === id);
+  if (idx < 0) return false;
+  const [item] = vehicles.splice(idx, 1);
+  await moveToTrash(TRASH.VEHICLE, item);
+  await persistVehicles();
+  return true;
 };
 
 // ─── SERVICE RECORDS ────────────────────────────────────────────────────────
 export const addServiceRecord = async (vehicleId, record) => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
 
@@ -113,6 +142,7 @@ export const addServiceRecord = async (vehicleId, record) => {
   }
 
   console.log("[DEV] addServiceRecord:", vehicleId, serviceRecord.id);
+  await persistVehicles();
   return serviceRecord;
 };
 
@@ -125,22 +155,26 @@ export const findServiceRecordByDiagId = (vehicleId, diagId) => {
 };
 
 export const updateServiceRecord = async (vehicleId, recordId, updates) => {
+  await ensureLoaded();
   const vIdx = vehicles.findIndex((v) => v.id === vehicleId);
   if (vIdx < 0) return null;
   const rIdx = vehicles[vIdx].serviceRecords.findIndex((r) => r.id === recordId);
   if (rIdx < 0) return null;
   vehicles[vIdx].serviceRecords[rIdx] = { ...vehicles[vIdx].serviceRecords[rIdx], ...updates };
   vehicles[vIdx].updatedAt = new Date().toISOString();
+  await persistVehicles();
   return vehicles[vIdx].serviceRecords[rIdx];
 };
 
 // ─── PHOTOS ─────────────────────────────────────────────────────────────────
 export const addVehiclePhoto = async (vehicleId, photoUri, caption = "") => {
+  await ensureLoaded();
   const idx = vehicles.findIndex((v) => v.id === vehicleId);
   if (idx < 0) return null;
   const photo = { id: genId(), uri: photoUri, caption, createdAt: new Date().toISOString() };
   vehicles[idx].photos.push(photo);
   vehicles[idx].updatedAt = new Date().toISOString();
+  await persistVehicles();
   return photo;
 };
 
@@ -738,3 +772,19 @@ vehicles.push({
   createdAt: "2026-04-10T12:00:00Z",
   updatedAt: "2026-04-11T16:30:00Z",
 });
+
+// ─── RESET ───────────────────────────────────────────────────────────────────
+// Wipes all in-memory garage data AND clears it from AsyncStorage.
+export const resetAllData = async () => {
+  vehicles = [];
+  await saveJSON("garage_vehicles", []);
+};
+
+
+// ─── Restore (used by Trash screen) ─────────────────────────────────────────
+export const restoreVehicle = async (vehicle) => {
+  await ensureLoaded();
+  vehicles.push({ ...vehicle, updatedAt: new Date().toISOString() });
+  await persistVehicles();
+  return vehicle;
+};

@@ -53,6 +53,16 @@ export const callHank = async (messages, system) => {
 const tryOnce = async (messages, system) => {
   const url = `${SUPABASE_URL}/functions/v1/${FUNCTION_NAME}`;
 
+  // ── Diagnostic logging ──────────────────────────────────────────────────
+  console.log("[Hank] Calling:", url);
+  console.log("[Hank] SUPABASE_URL loaded:", SUPABASE_URL ? `"${SUPABASE_URL}"` : "⚠️ EMPTY");
+  console.log("[Hank] SUPABASE_ANON_KEY loaded:", SUPABASE_ANON_KEY ? `"${SUPABASE_ANON_KEY.slice(0, 20)}..."` : "⚠️ EMPTY");
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error("[Hank] Missing env vars! Did you restart Expo with --clear after editing .env?");
+    return { ok: true, value: makeFallback("Backend connection isn't set up yet. Restart the app with: npx expo start --clear") };
+  }
+
   let rawText = "";
   try {
     const res = await fetch(url, {
@@ -65,11 +75,11 @@ const tryOnce = async (messages, system) => {
       body: JSON.stringify({ messages, system }),
     });
 
+    console.log("[Hank] Response status:", res.status);
+
     if (!res.ok) {
       const errBody = await res.text();
       console.error("[Hank] Edge function HTTP error:", res.status, errBody);
-      // Network/auth errors are the one case we DO give a gentle hint —
-      // but still in a conversational tone, not a debug message.
       if (res.status === 401 || res.status === 403) {
         return { ok: true, value: makeFallback("I'm having trouble reaching my brain — connection isn't authorized. Let your developer know.") };
       }
@@ -81,8 +91,11 @@ const tryOnce = async (messages, system) => {
 
     const data = await res.json();
     rawText = data?.content?.[0]?.text || "";
+    console.log("[Hank] Got response, text length:", rawText.length);
   } catch (err) {
     console.error("[Hank] Network error:", err);
+    console.error("[Hank] Error name:", err.name, "message:", err.message);
+    console.error("[Hank] Full URL was:", url);
     return { ok: true, value: makeFallback("I'm having trouble connecting right now. Check your internet and try again.") };
   }
 

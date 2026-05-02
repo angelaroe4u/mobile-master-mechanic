@@ -1,0 +1,142 @@
+<!--
+  Paste this in Shopify admin → Online Store → Pages → Add page.
+  Title: Data Deletion Request
+  Click the "<>" icon in the editor toolbar to switch to HTML mode, then paste.
+
+  This uses Shopify's built-in /contact form endpoint. Submissions are
+  emailed to the address set in Shopify admin → Settings → Notifications →
+  "Customer contact" (default: angela@carlotsupplies.com).
+-->
+
+<h1>Data Deletion Request</h1>
+<p><strong>Last updated:</strong> April 30, 2026</p>
+
+<p>This page lets you request that <strong>Angie's Auto Supplies Inc.</strong> delete your account and associated personal data. This applies to our online store at carlotsupplies.com, the <strong>Mobile Master Mechanic</strong> mobile app, or both.</p>
+
+<p>We honor data deletion requests for all users, regardless of where you live or which laws apply to you.</p>
+
+<hr>
+
+<h2>Submit a deletion request</h2>
+
+<p>Fill out the form below. We'll email you a confirmation within <strong>24 hours</strong>. Once you reply to that confirmation email, we'll permanently delete your account and data within <strong>30 days</strong>, except where retention is required by law (such as billing records).</p>
+
+<form method="post" action="/contact#contact_form" id="data-deletion-form" accept-charset="UTF-8" enctype="multipart/form-data">
+  <input type="hidden" name="form_type" value="contact">
+  <input type="hidden" name="utf8" value="✓">
+  <input type="hidden" name="contact[subject]" value="Data Deletion Request — Mobile Master Mechanic / carlotsupplies.com">
+
+  <p>
+    <label for="contact_name"><strong>Your name</strong></label><br>
+    <input type="text" id="contact_name" name="contact[name]" required autocomplete="name" style="width:100%; max-width:480px; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:6px;">
+  </p>
+
+  <p>
+    <label for="contact_email"><strong>Your account email address</strong> <span style="color:#c00;">*</span></label><br>
+    <span style="font-size:13px; color:#666;">Use the email associated with your account. We'll send your confirmation here.</span><br>
+    <input type="email" id="contact_email" name="contact[email]" required autocomplete="email" style="width:100%; max-width:480px; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:6px;">
+  </p>
+
+  <p>
+    <label for="contact_scope"><strong>What do you want deleted?</strong> <span style="color:#c00;">*</span></label><br>
+    <select id="contact_scope" name="contact[scope]" required style="width:100%; max-width:480px; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:6px; background:white;">
+      <option value="">— Select one —</option>
+      <optgroup label="Delete account AND data">
+        <option value="Account+Data — App">Mobile Master Mechanic app account (delete account + data)</option>
+        <option value="Account+Data — Website">carlotsupplies.com store account (delete account + data)</option>
+        <option value="Account+Data — Everything">Everything — full erasure (both accounts + all data)</option>
+      </optgroup>
+      <optgroup label="Delete data only (keep account)">
+        <option value="Data only — App">Mobile Master Mechanic app — delete stored data, keep my account</option>
+        <option value="Data only — Website">carlotsupplies.com — delete stored data, keep my account</option>
+        <option value="Data only — Both">Both — delete all stored data, keep both accounts</option>
+      </optgroup>
+    </select>
+  </p>
+
+  <p>
+    <label for="contact_body"><strong>Anything else we should know?</strong></label><br>
+    <span style="font-size:13px; color:#666;">Optional. Tell us if you have multiple email addresses, an account under a different name, or any special instructions.</span><br>
+    <textarea id="contact_body" name="contact[body]" rows="5" style="width:100%; max-width:480px; padding:10px; font-size:16px; border:1px solid #ccc; border-radius:6px;"></textarea>
+  </p>
+
+  <p>
+    <label style="display:flex; align-items:flex-start; gap:8px; max-width:480px;">
+      <input type="checkbox" name="contact[acknowledged]" value="yes" required style="margin-top:4px;">
+      <span><strong>I understand</strong> that submitting this request will result in the permanent deletion of my account and associated data, and that this action cannot be undone once the deletion has been completed.</span>
+    </label>
+  </p>
+
+  <p>
+    <button type="submit" style="background:#0a0e1a; color:white; padding:14px 28px; font-size:16px; font-weight:700; border:none; border-radius:8px; cursor:pointer;">Submit Deletion Request</button>
+  </p>
+</form>
+
+<p><em>After you submit, you'll see a confirmation message at the top of this page. We'll email you within 24 hours to verify your identity. Reply to that email to authorize the deletion.</em></p>
+
+<hr>
+
+<h2>Faster path: delete app data immediately from inside the app</h2>
+
+<p>If you only want to wipe your <strong>Mobile Master Mechanic</strong> app data (without deleting your account), you can do it instantly from inside the app — no email required:</p>
+
+<ol>
+  <li>Open Mobile Master Mechanic on your phone.</li>
+  <li>Tap the <strong>Settings</strong> tab (gear icon, bottom right).</li>
+  <li>Scroll to the bottom and tap <strong>Reset App / Delete All My Data</strong>.</li>
+  <li>Confirm both prompts.</li>
+</ol>
+
+<p>This immediately erases all vehicles, diagnoses, work orders, photos, points, and rewards. The reset is permanent and there is no undo.</p>
+
+<p>To <strong>also</strong> delete your account record itself, tap <strong>Delete Account</strong> (right next to Reset). You'll be asked to confirm three times before the deletion is processed.</p>
+
+<hr>
+
+<h2>What happens after we receive your request</h2>
+
+<ol>
+  <li><strong>Within 24 hours:</strong> We email you to acknowledge receipt and verify your identity (so we don't delete the wrong person's data).</li>
+  <li><strong>You reply</strong> to that email confirming you want to proceed.</li>
+  <li><strong>Within 30 days:</strong> We permanently delete the data you requested, except where retention is required by law (billing records, fraud investigations, active legal holds).</li>
+  <li><strong>We email you again</strong> to confirm the deletion is complete.</li>
+</ol>
+
+<h3>What is <em>not</em> deleted by these requests</h3>
+
+<ul>
+  <li>Records held by third parties we do not control:
+    <ul>
+      <li>Apple App Store or Google Play purchase history (request deletion via Apple/Google directly)</li>
+      <li>Payment processors such as Shopify Payments and Stripe (billing data subject to their retention policies)</li>
+      <li>Anonymous, aggregated analytics that cannot be linked back to you</li>
+    </ul>
+  </li>
+  <li>Public reviews or ratings you may have left on Google Play or third-party sites — request these directly with the platform.</li>
+</ul>
+
+<hr>
+
+<h2>Direct contact</h2>
+
+<p>Prefer to email us directly instead of using the form? Send your request to:</p>
+
+<p><strong><a href="mailto:angela@carlotsupplies.com?subject=Data%20Deletion%20Request">angela@carlotsupplies.com</a></strong></p>
+
+<p>Subject line: <strong>Data Deletion Request</strong></p>
+
+<p>Same 24-hour acknowledgment, same 30-day deletion window.</p>
+
+<hr>
+
+<h2>Your rights</h2>
+
+<p>If you live in the European Economic Area, the United Kingdom, or California, you have additional rights under GDPR / UK GDPR / CCPA, including the right to receive confirmation of deletion in writing. We honor these requests for all users regardless of region.</p>
+
+<p>For full details on what data we collect and how we handle it, see our <a href="/policies/privacy-policy">website Privacy Policy</a> and the <a href="/pages/mobile-master-mechanic-privacy-policy">Mobile Master Mechanic Privacy Policy</a>.</p>
+
+<p style="margin-top:32px; color:#666; font-size:14px;">
+  <strong>Angie's Auto Supplies Inc.</strong><br>
+  Oregon, United States<br>
+  <a href="mailto:angela@carlotsupplies.com">angela@carlotsupplies.com</a>
+</p>

@@ -8,10 +8,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS, FONTS, LINKS, BORDER_RADIUS } from "../constants/theme";
 import { useColors, useThemeMode } from "../context/ThemeContext";
-import { signOut, getCurrentUser } from "../services/firebase";
+import { signOut, getCurrentUser, deleteAccount } from "../services/firebase";
 import { restorePurchases } from "../services/subscriptions";
-import { getAllEarnedRewards } from "../services/rewards";
-import { getUserStats, onPointsChange } from "../services/gamification";
+import { getAllEarnedRewards, resetAllData as resetRewards } from "../services/rewards";
+import { getUserStats, onPointsChange, resetAllData as resetGamification } from "../services/gamification";
+import { resetAllData as resetGarage } from "../services/garage";
+import { resetAllData as resetFirestore } from "../services/firestore";
+import { getTrash, resetAllData as resetTrash } from "../services/trash";
 import RankBadge from "../components/RankBadge";
 
 const SettingsRow = ({ icon, title, subtitle, onPress, danger }) => (
@@ -29,6 +32,7 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
   const user = getCurrentUser();
   const [livePoints, setLivePoints] = useState(userPoints);
   const [earnedRewards, setEarnedRewards] = useState(getAllEarnedRewards());
+  const [trashCount, setTrashCount] = useState(0);
   const [rewardModal, setRewardModal] = useState(null);
   const { colors } = useColors();
   const { mode, setMode, isDark } = useThemeMode();
@@ -38,6 +42,7 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
     useCallback(() => {
       getUserStats().then((stats) => setLivePoints(stats.points));
       setEarnedRewards(getAllEarnedRewards());
+      getTrash().then((t) => setTrashCount(t.totalCount || 0));
     }, [])
   );
 
@@ -55,6 +60,138 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
       { text: "Cancel", style: "cancel" },
       { text: "Sign Out", style: "destructive", onPress: signOut },
     ]);
+  };
+
+  // ── Reset App: wipes all in-memory user data with two confirmations.
+  const handleResetApp = () => {
+    Alert.alert(
+      "Reset App?",
+      "This will permanently delete every vehicle in your garage, every saved diagnosis, all work orders, photos, points, and earned rewards.\n\nThis action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            // Second confirmation — final chance to back out.
+            Alert.alert(
+              "Are you absolutely sure?",
+              "Last chance. You are about to ERASE EVERYTHING in your account. There is no recovery.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete Everything",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await Promise.all([
+                        resetGarage(),
+                        resetFirestore(),
+                        resetGamification(),
+                        resetRewards(),
+                        resetTrash(),
+                      ]);
+                      // Refresh local UI state so the wipe shows immediately.
+                      setLivePoints(0);
+                      setEarnedRewards([]);
+                      setTrashCount(0);
+                      Alert.alert(
+                        "App Reset",
+                        "All your data has been deleted. The app is now in its starting state.",
+                        [{ text: "OK" }]
+                      );
+                    } catch (e) {
+                      Alert.alert(
+                        "Reset Failed",
+                        "Something went wrong while resetting. Email angela@carlotsupplies.com if this keeps happening.",
+                        [{ text: "OK" }]
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  // ── Delete Account: 3 confirmations, then wipes data + signs out.
+  const handleDeleteAccount = () => {
+    // Prompt 1 — explain
+    Alert.alert(
+      "Delete Your Account?",
+      "This will permanently delete your account and ALL associated data, including:\n\n• Every vehicle in your garage\n• All saved diagnoses and work orders\n• Photos, points, and earned rewards\n• Your subscription access (you must cancel billing separately in Google Play / Apple)\n\nThis cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            // Prompt 2 — escalate
+            Alert.alert(
+              "Are you sure?",
+              "Once your account is deleted, we cannot recover it or any of its data. Are you certain you want to proceed?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "I Understand",
+                  style: "destructive",
+                  onPress: () => {
+                    // Prompt 3 — final gate
+                    Alert.alert(
+                      "Final Confirmation",
+                      "This is your LAST CHANCE to back out.\n\nTap 'Delete My Account Forever' to permanently erase your account.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Delete My Account Forever",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              // Wipe local data first so even a server failure leaves the device clean
+                              await Promise.all([
+                                resetGarage(),
+                                resetFirestore(),
+                                resetGamification(),
+                                resetRewards(),
+                                resetTrash(),
+                              ]);
+                              setLivePoints(0);
+                              setEarnedRewards([]);
+                              setTrashCount(0);
+
+                              // Then call account deletion (DEV MODE: stub; PROD: server delete)
+                              await deleteAccount();
+
+                              // Finally sign out
+                              await signOut();
+
+                              Alert.alert(
+                                "Account Deleted",
+                                "Your account and all associated data have been permanently deleted. We're sorry to see you go.\n\nIf you cancelled an active subscription, remember to also cancel billing in Google Play (Android) or App Store (iOS) settings to stop future charges.",
+                                [{ text: "OK" }]
+                              );
+                            } catch (e) {
+                              Alert.alert(
+                                "Deletion Failed",
+                                "Something went wrong. Email angela@carlotsupplies.com and we'll process your deletion manually within 24 hours.",
+                                [{ text: "OK" }]
+                              );
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   // Dynamic style overrides based on current theme
@@ -178,8 +315,6 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
             icon="📧" title="Contact Us" subtitle={LINKS.supportEmail}
             onPress={() => Linking.openURL(`mailto:${LINKS.supportEmail}`)}
           />
-          <SettingsRow icon="🐛" title="Report a Bug" subtitle="Help us improve the app" onPress={() => {}} />
-          <SettingsRow icon="💬" title="Send Feedback" onPress={() => {}} />
         </View>
 
         {/* Legal */}
@@ -189,11 +324,59 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
           <SettingsRow icon="🔒" title="Privacy Policy" onPress={() => navigation.navigate("Legal", { page: "privacy" })} />
         </View>
 
+        {/* Privacy controls — extend with Trash */}
+        <Text style={styles.sectionLabel}>Help & Feedback</Text>
+        <View style={styles.section}>
+          <SettingsRow
+            icon="🐛"
+            title="Report a Bug"
+            subtitle="Tell us what went wrong"
+            onPress={() => Linking.openURL("mailto:angela@carlotsupplies.com?subject=Bug%20Report%20%E2%80%94%20Mobile%20Master%20Mechanic&body=Describe%20what%20happened%20and%20what%20you%20expected%3A%0A%0A%0A%0A%2D%2D%2D%0AApp%20version%3A%201.0.0%0ADevice%3A%20")}
+          />
+          <SettingsRow
+            icon="💬"
+            title="Send a Comment"
+            subtitle="Share your thoughts"
+            onPress={() => Linking.openURL("mailto:angela@carlotsupplies.com?subject=Comment%20%E2%80%94%20Mobile%20Master%20Mechanic")}
+          />
+          <SettingsRow
+            icon="💡"
+            title="Suggest a Feature"
+            subtitle="Tell us what you'd like to see"
+            onPress={() => Linking.openURL("mailto:angela@carlotsupplies.com?subject=Feature%20Suggestion%20%E2%80%94%20Mobile%20Master%20Mechanic")}
+          />
+        </View>
+
         {/* About */}
         <Text style={styles.sectionLabel}>About</Text>
         <View style={styles.section}>
           <SettingsRow icon="ℹ️" title="Mobile Master Mechanic" subtitle="Version 1.0.0" />
           <SettingsRow icon="🏢" title="Angie's Auto Supplies Inc." subtitle={"4250 Salem Dallas Hwy NW\nSalem, OR 97304\n(503) 880-9564"} />
+        </View>
+
+        {/* Privacy controls */}
+        <Text style={styles.sectionLabel}>Privacy & Data</Text>
+        <View style={styles.section}>
+          <SettingsRow
+            icon="🗑️"
+            title="Reset App / Delete All My Data"
+            subtitle="Permanently erase your vehicles, diagnoses, points, and rewards"
+            danger
+            onPress={handleResetApp}
+          />
+          <SettingsRow
+            icon="❌"
+            title="Delete Account"
+            subtitle="Permanently delete your account AND all data (3-step confirmation)"
+            danger
+            onPress={handleDeleteAccount}
+          />
+          <SettingsRow
+            icon="🗑️"
+            title={trashCount > 0 ? `Trash (${trashCount})` : "Trash"}
+            subtitle="Restore deleted items within 14 days"
+            onPress={() => navigation.navigate("Trash")}
+          />
         </View>
 
         {/* Sign Out */}

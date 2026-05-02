@@ -20,6 +20,7 @@ import TermsScreen from "../screens/TermsScreen";
 import GarageScreen from "../screens/GarageScreen";
 import VehicleDetailScreen from "../screens/VehicleDetailScreen";
 import LegalScreen from "../screens/LegalScreen";
+import TrashScreen from "../screens/TrashScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -135,6 +136,7 @@ export default function AppNavigator({ isAuthenticated, hasSubscription, hasAcce
             <Stack.Screen name="Garage" component={GarageScreen} />
             <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} />
             <Stack.Screen name="Legal" component={LegalScreen} />
+            <Stack.Screen name="Trash" component={TrashScreen} />
           </>
         )}
       </Stack.Navigator>

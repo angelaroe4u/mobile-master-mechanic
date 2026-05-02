@@ -79,3 +79,18 @@ export const trackSuppliesClick = async (category, source) => {
 export const trackSubscription = async (type) => {
   console.log("[DEV] trackSubscription:", type);
 };
+
+// ─── ACCOUNT DELETION ────────────────────────────────────────────────────────
+// DEV MODE: returns true after a token delay so the UI can show progress.
+// PRODUCTION: this should:
+//   1. Call Supabase Edge Function /delete-user (or direct supabase.auth.admin.deleteUser)
+//   2. Cancel any active subscription (best-effort) via RevenueCat / billing API
+//   3. Wait for confirmation
+//   4. Sign out the user
+// Server-side delete is required because we cannot expose admin keys to the client.
+export const deleteAccount = async () => {
+  console.log("[DEV] deleteAccount — would call server-side delete in production");
+  // Simulate a brief network round-trip
+  await new Promise((r) => setTimeout(r, 600));
+  return true;
+};

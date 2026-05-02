@@ -3,9 +3,20 @@
 // DEV MODE: stores in memory. Production: persists to Firestore user profile.
 
 import { RANKS, RANK_REWARDS } from "../constants/theme";
+import { loadJSON, saveJSON } from "./persist";
 
 // In-memory store for dev
 let earnedRewards = {};
+
+let _rewardsLoaded = null;
+const ensureLoaded = () => {
+  if (!_rewardsLoaded) {
+    _rewardsLoaded = loadJSON("rewards_earned", {}).then((r) => { earnedRewards = r; });
+  }
+  return _rewardsLoaded;
+};
+const persistRewards = () => saveJSON("rewards_earned", earnedRewards);
+ensureLoaded();
 
 export const getEarnedRewards = () => earnedRewards;
 
@@ -16,6 +27,7 @@ export const checkAndAwardLevelUp = (prevPoints, newPoints) => {
       const reward = RANK_REWARDS[rank.level];
       if (reward) {
         earnedRewards[rank.level] = { ...reward, rank, earnedAt: new Date().toISOString() };
+        persistRewards();
         return { rank, reward };
       }
     }
@@ -26,6 +38,7 @@ export const checkAndAwardLevelUp = (prevPoints, newPoints) => {
 export const markRewardSeen = (level) => {
   if (earnedRewards[level]) {
     earnedRewards[level].seen = true;
+    persistRewards();
   }
 };
 
@@ -33,7 +46,11 @@ export const getAllEarnedRewards = () => {
   return Object.values(earnedRewards);
 };
 
-// Seed some rewards in dev mode so Settings shows content
-earnedRewards = {
-  2: { ...RANK_REWARDS[2], rank: RANKS[1], earnedAt: "2026-04-10T12:00:00Z", seen: true },
+
+
+// ─── RESET ───────────────────────────────────────────────────────────────────
+// Clears all earned rewards (memory + persisted storage).
+export const resetAllData = async () => {
+  earnedRewards = {};
+  await saveJSON("rewards_earned", {});
 };

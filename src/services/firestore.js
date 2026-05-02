@@ -3,77 +3,27 @@
 // Real Firestore will be wired in during EAS build setup.
 
 import { getCurrentUser } from "./firebase";
+import { loadJSON, saveJSON } from "./persist";
+import { moveToTrash, TYPES as TRASH } from "./trash";
 
-let mockDiagnoses = [
-  {
-    id: "diag-001",
-    userId: "dev-user-001",
-    vehicle: { year: "2019", make: "Toyota", model: "Camry", mileage: "87000", transmission: "automatic" },
-    title: "Check Engine Light — P0420",
-    summary: "Catalytic converter efficiency below threshold.",
-    severity: "medium",
-    completed: true,
-    startedAt: "2026-04-10T12:00:00.000Z",
-    transcript: [],
-    apiMessages: [],
-    tools: [],
-    keyTerms: [],
-    confidence: 92,
-    done: true,
-    diagnosis: {
-      title: "Catalytic Converter Efficiency — P0420",
-      severity: "medium",
-      summary: "Catalytic converter efficiency below threshold. Bank 1 catalyst is not operating at peak efficiency.",
-      workOrders: [
-        {
-          title: "Replace Catalytic Converter",
-          description: "Remove and replace the failing catalytic converter on Bank 1.",
-          estimatedTotalCost: 1200,
-          estimatedHours: 3,
-          difficulty: "professional",
-          parts: [
-            { name: "Catalytic Converter (Bank 1)", partNumber: "16400-39445", estimatedCost: 850, searchQuery: "2019 Toyota Camry catalytic converter" },
-            { name: "Exhaust Gasket Set", partNumber: "90917-06089", estimatedCost: 25, searchQuery: "2019 Toyota Camry exhaust gasket" },
-          ],
-          steps: [
-            "Lift vehicle and secure on jack stands",
-            "Disconnect O2 sensors (upstream and downstream)",
-            "Remove exhaust bolts connecting the catalytic converter",
-            "Remove old catalytic converter and gaskets",
-            "Install new gaskets and catalytic converter",
-            "Reconnect O2 sensors",
-            "Lower vehicle and clear DTCs with OBD-II scanner",
-            "Start engine and verify no exhaust leaks",
-          ],
-        },
-      ],
-    },
-    messages: [],
-  },
-  {
-    id: "diag-002",
-    userId: "dev-user-001",
-    vehicle: { year: "2021", make: "Honda", model: "CR-V", mileage: "42000", transmission: "automatic" },
-    title: "Squealing noise when braking",
-    summary: "Brake pad wear indicator making contact with rotor.",
-    severity: "low",
-    completed: false,
-    startedAt: "2026-04-12T12:00:00.000Z",
-    transcript: [],
-    apiMessages: [],
-    tools: [],
-    keyTerms: [],
-    confidence: 0,
-    done: false,
-    diagnosis: null,
-    messages: [],
-  },
-];
+let mockDiagnoses = [];
 
-let mockVehicles = [
-  { year: "2019", make: "Toyota", model: "Camry", mileage: "87000", transmission: "automatic" },
-  { year: "2021", make: "Honda", model: "CR-V", mileage: "42000", transmission: "automatic" },
-];
+let mockVehicles = [];
+
+let _firestoreLoaded = null;
+const ensureLoaded = () => {
+  if (!_firestoreLoaded) {
+    _firestoreLoaded = Promise.all([
+      loadJSON("firestore_diagnoses", []).then((d) => { mockDiagnoses = d; }),
+      loadJSON("firestore_vehicles", []).then((v) => { mockVehicles = v; }),
+    ]);
+  }
+  return _firestoreLoaded;
+};
+const persistDiagnoses = () => saveJSON("firestore_diagnoses", mockDiagnoses);
+const persistVehicles = () => saveJSON("firestore_vehicles", mockVehicles);
+ensureLoaded();
+
 
 const mockLeaderboard = [
   { uid: "dev-user-001", rank: 1, name: "Angela", points: 75, rankTitle: "Oil Change Specialist" },
@@ -84,6 +34,7 @@ const mockLeaderboard = [
 ];
 
 export const saveDiagnosis = async (diag) => {
+  await ensureLoaded();
   const user = getCurrentUser();
   // Ensure startedAt is always an ISO string (not a Date object) for serialization safety
   const safeStartedAt = diag.startedAt instanceof Date
@@ -101,35 +52,67 @@ export const saveDiagnosis = async (diag) => {
 };
 
 export const getDiagnoses = async () => {
+  await ensureLoaded();
   return mockDiagnoses;
 };
 
 export const getDiagnosisById = async (id) => {
+  await ensureLoaded();
   return mockDiagnoses.find(d => d.id === id) || null;
 };
 
 export const deleteDiagnosis = async (id) => {
-  mockDiagnoses = mockDiagnoses.filter(d => d.id !== id);
-  console.log("[DEV] deleteDiagnosis:", id);
+  await ensureLoaded();
+  const idx = mockDiagnoses.findIndex((d) => d.id === id);
+  if (idx < 0) return false;
+  const [item] = mockDiagnoses.splice(idx, 1);
+  await moveToTrash(TRASH.DIAGNOSIS, item);
+  await persistDiagnoses();
+  return true;
 };
 
 export const saveVehicle = async (vehicle) => {
+  await ensureLoaded();
   mockVehicles.push(vehicle);
   console.log("[DEV] saveVehicle:", vehicle);
 };
 
 export const getVehicles = async () => {
+  await ensureLoaded();
   return mockVehicles;
 };
 
 export const getLeaderboard = async (limit = 50) => {
+  await ensureLoaded();
   return mockLeaderboard.slice(0, limit);
 };
 
 export const submitFeedback = async (feedback) => {
+  await ensureLoaded();
   console.log("[DEV] submitFeedback:", feedback);
 };
 
 export const submitBugReport = async (report) => {
+  await ensureLoaded();
   console.log("[DEV] submitBugReport:", report);
+};
+
+// ─── RESET ───────────────────────────────────────────────────────────────────
+// Wipes all in-memory diagnosis and vehicle records.
+export const resetAllData = async () => {
+  mockDiagnoses = [];
+  mockVehicles = [];
+  await Promise.all([
+    saveJSON("firestore_diagnoses", []),
+    saveJSON("firestore_vehicles", []),
+  ]);
+};
+
+
+// ─── Restore (used by Trash screen) ─────────────────────────────────────────
+export const restoreDiagnosis = async (diag) => {
+  await ensureLoaded();
+  mockDiagnoses.unshift({ ...diag });
+  await persistDiagnoses();
+  return diag;
 };

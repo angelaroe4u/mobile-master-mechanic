@@ -19,6 +19,7 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import { DiagnosisProvider } from "./src/context/DiagnosisContext";
 import { ThemeProvider, useColors } from "./src/context/ThemeContext";
 import { COLORS } from "./src/constants/theme";
+import { purgeExpired } from "./src/services/trash";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -39,6 +40,9 @@ export default function App() {
     setHasSubscription(true);
     setHasAcceptedTerms(true);
     setLoading(false);
+
+    // Auto-purge trash items older than 14 days
+    purgeExpired().catch((e) => console.warn("[trash] purge failed:", e.message));
   }, []);
 
   if (!fontsLoaded || loading) {

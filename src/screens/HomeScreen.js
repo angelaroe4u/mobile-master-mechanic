@@ -140,7 +140,7 @@ export default function HomeScreen({ navigation, route, user, userPoints = 0 }) 
 
           {/* ── New Diagnosis CTA ─────────────────────── */}
           <TouchableOpacity
-            onPress={() => navigation.navigate("DiagChat", { diag: null })}
+            onPress={() => navigation.navigate("DiagChat", { diag: null, newDiag: true })}
             activeOpacity={0.85}
           >
             <LinearGradient
