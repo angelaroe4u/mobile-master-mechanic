@@ -4,7 +4,7 @@
 // to be linked. Each "key" maps to a separate JSON file under
 // <documentDirectory>/mmm_v1/. clearAll() wipes the whole directory.
 
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 const DIR = (FileSystem.documentDirectory || "") + "mmm_v1/";
 
