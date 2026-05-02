@@ -15,6 +15,8 @@ import { getUserStats, onPointsChange, resetAllData as resetGamification } from 
 import { resetAllData as resetGarage } from "../services/garage";
 import { resetAllData as resetFirestore } from "../services/firestore";
 import { getTrash, resetAllData as resetTrash } from "../services/trash";
+import { getCurrentBuild, getLastUpdated } from "../services/buildInfo";
+import { testStorage } from "../services/persist";
 import RankBadge from "../components/RankBadge";
 
 const SettingsRow = ({ icon, title, subtitle, onPress, danger }) => (
@@ -33,6 +35,8 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
   const [livePoints, setLivePoints] = useState(userPoints);
   const [earnedRewards, setEarnedRewards] = useState(getAllEarnedRewards());
   const [trashCount, setTrashCount] = useState(0);
+  const [buildInfo] = useState(getCurrentBuild());
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [rewardModal, setRewardModal] = useState(null);
   const { colors } = useColors();
   const { mode, setMode, isDark } = useThemeMode();
@@ -43,6 +47,7 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
       getUserStats().then((stats) => setLivePoints(stats.points));
       setEarnedRewards(getAllEarnedRewards());
       getTrash().then((t) => setTrashCount(t.totalCount || 0));
+      getLastUpdated().then((iso) => setLastUpdated(iso));
     }, [])
   );
 
@@ -192,6 +197,25 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
         },
       ]
     );
+  };
+
+
+  // ── Test Storage: verifies persist.js is actually working
+  const handleTestStorage = async () => {
+    const result = await testStorage();
+    if (result.ok) {
+      Alert.alert(
+        "Storage Works! ✓",
+        `Your app's data persistence is working correctly.\n\n${result.message}\n\nLocation:\n${result.location}`,
+        [{ text: "OK" }]
+      );
+    } else {
+      Alert.alert(
+        "Storage Failed ✗",
+        `Storage is NOT working. Your data won't persist.\n\nError:\n${result.error}\n\nPlease email this to angela@carlotsupplies.com.`,
+        [{ text: "OK" }]
+      );
+    }
   };
 
   // Dynamic style overrides based on current theme
@@ -350,7 +374,8 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
         {/* About */}
         <Text style={styles.sectionLabel}>About</Text>
         <View style={styles.section}>
-          <SettingsRow icon="ℹ️" title="Mobile Master Mechanic" subtitle="Version 1.0.0" />
+          <SettingsRow icon="ℹ️" title="Mobile Master Mechanic" subtitle={`Version ${buildInfo.version} (Build ${buildInfo.build})`} />
+          <SettingsRow icon="🕐" title="Last Updated" subtitle={lastUpdated ? new Date(lastUpdated).toLocaleString() : "Just installed"} />
           <SettingsRow icon="🏢" title="Angie's Auto Supplies Inc." subtitle={"4250 Salem Dallas Hwy NW\nSalem, OR 97304\n(503) 880-9564"} />
         </View>
 
@@ -376,6 +401,12 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
             title={trashCount > 0 ? `Trash (${trashCount})` : "Trash"}
             subtitle="Restore deleted items within 14 days"
             onPress={() => navigation.navigate("Trash")}
+          />
+          <SettingsRow
+            icon="🧪"
+            title="Test Storage"
+            subtitle="Verify your data is being saved correctly"
+            onPress={handleTestStorage}
           />
         </View>
 
