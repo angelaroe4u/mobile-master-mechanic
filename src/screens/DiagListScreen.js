@@ -14,9 +14,7 @@ const fmtDate = (iso) => {
   if (!iso) return "";
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) +
-    " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit"   trashBtn: { padding: 6, marginRight: 4 },
-  trashIcon: { fontSize: 18 },
-});
+    " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 };
 
 export default function DiagListScreen({ navigation, route }) {
@@ -198,4 +196,6 @@ const styles = StyleSheet.create({
   },
   emptyIcon: { fontSize: 40, marginBottom: 12 },
   emptyText: { fontSize: 14, color: COLORS.textM, fontFamily: FONTS.body },
+  trashBtn: { padding: 6, marginRight: 4 },
+  trashIcon: { fontSize: 18 },
 });
