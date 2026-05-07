@@ -5,6 +5,7 @@
 import { getCurrentUser } from "./firebase";
 import { loadJSON, saveJSON } from "./persist";
 import { moveToTrash, TYPES as TRASH } from "./trash";
+import { findMatchingVehicles, createVehicle } from "./garage";
 
 let mockDiagnoses = [];
 
@@ -33,6 +34,47 @@ const mockLeaderboard = [
   { uid: "user-005", rank: 5, name: "Lisa M.", points: 20, rankTitle: "Lube Tech" },
 ];
 
+
+// ─── ENSURE VEHICLE IN GARAGE ───────────────────────────────────────────────
+// When a diagnosis is saved with a real vehicle, make sure that vehicle exists
+// in the user's garage. Returns the linked vehicle ID (existing or newly
+// created). No-ops if there's no usable vehicle info yet.
+const ensureVehicleInGarage = async (diag) => {
+  // Need at least make + model to form a real vehicle
+  const v = diag?.vehicle;
+  if (!v?.make || !v?.model) return diag?.linkedVehicleId || null;
+
+  // If there's no real conversation yet, don't create a phantom garage entry
+  const hasContent =
+    (diag.transcript?.length || 0) > 0 ||
+    (diag.diagnosis?.workOrders?.length || 0) > 0 ||
+    diag.completed;
+  if (!hasContent) return diag?.linkedVehicleId || null;
+
+  // If already linked to a garage vehicle, keep that link
+  if (diag.linkedVehicleId) return diag.linkedVehicleId;
+
+  // Look for an existing match in the garage
+  const matches = findMatchingVehicles(v);
+  if (matches.length > 0) return matches[0].id;
+
+  // Create a new garage entry
+  try {
+    const newV = await createVehicle({
+      year: v.year || "",
+      make: v.make || "",
+      model: v.model || "",
+      trim: v.trim || "",
+      mileage: v.mileage || "",
+      transmission: v.transmission || "",
+    });
+    return newV.id;
+  } catch (e) {
+    console.warn("[firestore] ensureVehicleInGarage createVehicle failed:", e?.message ?? e);
+    return null;
+  }
+};
+
 export const saveDiagnosis = async (diag) => {
   await ensureLoaded();
   const user = getCurrentUser();
@@ -40,7 +82,13 @@ export const saveDiagnosis = async (diag) => {
   const safeStartedAt = diag.startedAt instanceof Date
     ? diag.startedAt.toISOString()
     : diag.startedAt;
-  const safeDiag = safeStartedAt !== diag.startedAt ? { ...diag, startedAt: safeStartedAt } : diag;
+  let safeDiag = safeStartedAt !== diag.startedAt ? { ...diag, startedAt: safeStartedAt } : diag;
+
+  // Auto-add the vehicle to the user's garage if appropriate, and link the diagnosis
+  const linkedVehicleId = await ensureVehicleInGarage(safeDiag);
+  if (linkedVehicleId && safeDiag.linkedVehicleId !== linkedVehicleId) {
+    safeDiag = { ...safeDiag, linkedVehicleId };
+  }
 
   const existing = mockDiagnoses.findIndex(d => d.id === safeDiag.id);
   if (existing >= 0) {
@@ -48,7 +96,7 @@ export const saveDiagnosis = async (diag) => {
   } else {
     mockDiagnoses.unshift({ ...safeDiag, userId: user?.uid, startedAt: safeStartedAt || new Date().toISOString() });
   }
-  console.log("[DEV] saveDiagnosis:", safeDiag.id);
+  console.log("[DEV] saveDiagnosis:", safeDiag.id, linkedVehicleId ? `(linked to vehicle ${linkedVehicleId})` : "");
   await persistDiagnoses();
 };
 
@@ -121,4 +169,27 @@ export const restoreDiagnosis = async (diag) => {
   await persistDiagnoses();
 
   return diag;
+};
+
+
+// ─── BACKFILL ────────────────────────────────────────────────────────────────
+// Called once on app start. Scans all existing diagnoses and ensures any with
+// a real vehicle have a corresponding entry in the garage. Returns the number
+// of garage vehicles created/linked.
+export const backfillGarageVehicles = async () => {
+  await ensureLoaded();
+  let updated = 0;
+  for (let i = 0; i < mockDiagnoses.length; i++) {
+    const d = mockDiagnoses[i];
+    const id = await ensureVehicleInGarage(d);
+    if (id && d.linkedVehicleId !== id) {
+      mockDiagnoses[i] = { ...d, linkedVehicleId: id };
+      updated++;
+    }
+  }
+  if (updated > 0) {
+    await persistDiagnoses();
+    console.log(`[firestore] backfillGarageVehicles: linked ${updated} diagnosis(es) to garage`);
+  }
+  return updated;
 };

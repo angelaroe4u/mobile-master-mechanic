@@ -21,6 +21,7 @@ import { ThemeProvider, useColors } from "./src/context/ThemeContext";
 import { COLORS } from "./src/constants/theme";
 import { purgeExpired } from "./src/services/trash";
 import { recordBuildIfNew } from "./src/services/buildInfo";
+import { backfillGarageVehicles } from "./src/services/firestore";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -45,6 +46,7 @@ export default function App() {
     // Auto-purge trash items older than 14 days
     purgeExpired().catch((e) => console.warn("[trash] purge failed:", e.message));
     recordBuildIfNew().catch((e) => console.warn("[buildInfo] recordBuildIfNew failed:", e.message));
+    backfillGarageVehicles().catch((e) => console.warn("[firestore] backfillGarageVehicles failed:", e.message));
   }, []);
 
   if (!fontsLoaded || loading) {
