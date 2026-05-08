@@ -23,8 +23,10 @@ import { trackSubscription } from "./firebase";
 
 const ENTITLEMENT_ID = "Mobile Master Mechanic Pro";
 
-// API keys (test keys for now — swap to production keys when ready to charge real cards)
-const REVCAT_API_KEY_ANDROID = "test_EVHrgEDqXJmICrIwPpJDelOkjyB";
+// API keys
+// Android: production key from RevenueCat dashboard (Mobile Master Mechanic Play Store app)
+// iOS: still using test key — swap when iOS app is set up in RevenueCat
+const REVCAT_API_KEY_ANDROID = "goog_KLrPTQLBsmNJrPuRNMAeaqhJiyw";
 const REVCAT_API_KEY_IOS = "test_EVHrgEDqXJmICrIwPpJDelOkjyB"; // TODO: replace with real iOS key
 
 let _configured = false;
@@ -185,6 +187,4 @@ export const checkFreeTrialEligible = async (userProfile) => {
   return !userProfile?.freeTrialUsed;
 };
 
-export const markFreeTrialUsed = async (updateUserProfile, uid) => {
-  await updateUserProfile(uid, { freeTrialUsed: true });
-};
+export const markFreeTrialUsed = async (u
