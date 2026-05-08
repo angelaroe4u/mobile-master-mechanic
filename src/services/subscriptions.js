@@ -187,4 +187,6 @@ export const checkFreeTrialEligible = async (userProfile) => {
   return !userProfile?.freeTrialUsed;
 };
 
-export const markFreeTrialUsed = async (u
+export const markFreeTrialUsed = async (updateUserProfile, uid) => {
+  await updateUserProfile(uid, { freeTrialUsed: true });
+};
