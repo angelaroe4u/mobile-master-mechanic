@@ -5,7 +5,7 @@ import { View, Text, StyleSheet, Image, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, GRADIENTS, FONTS } from "../constants/theme";
-import { getOfferings, purchasePackage, restorePurchases } from "../services/subscriptions";
+import { getOfferings, purchasePackage, restorePurchases, presentPaywall } from "../services/subscriptions";
 import Button from "../components/Button";
 import HankAvatar from "../components/HankAvatar";
 

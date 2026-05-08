@@ -9,7 +9,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { COLORS, FONTS, LINKS, BORDER_RADIUS } from "../constants/theme";
 import { useColors, useThemeMode } from "../context/ThemeContext";
 import { signOut, getCurrentUser, deleteAccount } from "../services/firebase";
-import { restorePurchases } from "../services/subscriptions";
+import { restorePurchases, presentCustomerCenter } from "../services/subscriptions";
 import { getAllEarnedRewards, resetAllData as resetRewards } from "../services/rewards";
 import { getUserStats, onPointsChange, resetAllData as resetGamification } from "../services/gamification";
 import { resetAllData as resetGarage } from "../services/garage";
@@ -274,7 +274,7 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.section}>
           <SettingsRow icon="👤" title={user?.email || "Not signed in"} subtitle="Your account" />
-          <SettingsRow icon="💳" title="Manage Subscription" subtitle="Change plan or cancel" onPress={() => {}} />
+          <SettingsRow icon="💳" title="Manage Subscription" subtitle="Change plan or cancel" onPress={presentCustomerCenter} />
           <SettingsRow icon="🔄" title="Restore Purchases" onPress={restorePurchases} />
         </View>
 

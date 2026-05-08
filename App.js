@@ -22,6 +22,7 @@ import { COLORS } from "./src/constants/theme";
 import { purgeExpired } from "./src/services/trash";
 import { recordBuildIfNew } from "./src/services/buildInfo";
 import { backfillGarageVehicles } from "./src/services/firestore";
+import { initPurchases, checkSubscriptionAccess } from "./src/services/subscriptions";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -38,10 +39,19 @@ export default function App() {
 
   useEffect(() => {
     // DEV MODE — bypass Firebase auth with mock user
-    setUser({ uid: "dev-user-001", name: "Angela", email: "angelaroe4u@gmail.com" });
-    setHasSubscription(true);
+    const mockUser = { uid: "dev-user-001", name: "Angela", email: "angelaroe4u@gmail.com" };
+    setUser(mockUser);
     setHasAcceptedTerms(true);
-    setLoading(false);
+
+    // Configure RevenueCat with the dev user. Then check entitlement state.
+    // If something fails (e.g. running in Expo Go without native module), we
+    // fall back to letting the user in (DEV MODE is permissive on purpose).
+    initPurchases(mockUser.uid).finally(() => {
+      checkSubscriptionAccess()
+        .then((status) => setHasSubscription(status.isActive || true))   // permissive in dev
+        .catch(() => setHasSubscription(true))
+        .finally(() => setLoading(false));
+    });
 
     // Auto-purge trash items older than 14 days
     purgeExpired().catch((e) => console.warn("[trash] purge failed:", e.message));
