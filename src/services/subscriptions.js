@@ -23,6 +23,24 @@ import { trackSubscription } from "./firebase";
 
 const ENTITLEMENT_ID = "Mobile Master Mechanic Pro";
 
+// ─── PRODUCT ID → CUSTOMER-FRIENDLY LABEL ────────────────────────────────────
+// Never display a raw product SKU (e.g. "mmm_monthly") to the user. Always
+// route it through productLabel() first. Returns "" for unknown / null inputs
+// so callers can safely concatenate (`Pro${label ? " · " + label : ""}`).
+const PRODUCT_LABELS = {
+  mmm_24hour_pass: "24-Hour Pass",
+  mmm_weekly:      "Weekly Plan",
+  mmm_monthly:     "Monthly Plan",
+  mmm_yearly:      "Annual Plan",
+};
+
+export const productLabel = (productId) => {
+  if (!productId) return "";
+  // Strip Google Play's ":<base-plan-id>" suffix on subscription product IDs.
+  const base = String(productId).split(":")[0];
+  return PRODUCT_LABELS[base] || "";
+};
+
 // API keys
 // Android: production key from RevenueCat dashboard (Mobile Master Mechanic Play Store app)
 // iOS: still using test key — swap when iOS app is set up in RevenueCat

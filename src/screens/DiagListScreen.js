@@ -101,59 +101,81 @@ export default function DiagListScreen({ navigation, route }) {
     const lastMsg = d.transcript?.filter((m) => m.role === "assistant").slice(-1)[0]?.content || "";
     const isGenerating = d.generating === true;
 
+    // NOTE: card and trash button are SIBLINGS (not nested) so the trash
+    // tap doesn't get swallowed by the card's onPress on Android. The trash
+    // button is absolutely positioned over the top-right corner of the card.
+    // Tapping a job card -> go to the vehicle's main screen (where the user
+    // can see all maintenance, fluids, parts, and the linked work orders).
+    // For brand-new diagnoses that haven't been linked to a garage vehicle
+    // yet (no make+model captured, or no real content), fall back to the
+    // chat so the user can finish entering vehicle info. While Hank is
+    // still generating, keep the gentle "still working" alert.
+    const handleCardTap = () => {
+      if (isGenerating) return handleGeneratingTap(d);
+      if (d.linkedVehicleId) {
+        return navigation.navigate("VehicleDetail", { vehicleId: d.linkedVehicleId });
+      }
+      return navigation.navigate("DiagChat", { diag: d });
+    };
+
     return (
-      <TouchableOpacity
-        onPress={() => isGenerating ? handleGeneratingTap(d) : navigation.navigate("DiagChat", { diag: d })}
-        style={[styles.card, isGenerating && styles.cardGenerating]}
-        activeOpacity={0.8}
-      >
-        <View style={styles.cardTop}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.vehicleName}>{vLabel}</Text>
-            <Text style={styles.date}>{fmtDate(d.startedAt)}</Text>
+      <View style={[styles.card, isGenerating && styles.cardGenerating]}>
+        <TouchableOpacity
+          onPress={handleCardTap}
+          style={styles.cardPressArea}
+          activeOpacity={0.8}
+        >
+          <View style={styles.cardTop}>
+            <View style={{ flex: 1, paddingRight: 44 /* leave room for absolute trash button */ }}>
+              <Text style={styles.vehicleName}>{vLabel}</Text>
+              <Text style={styles.date}>{fmtDate(d.startedAt)}</Text>
+            </View>
+            <View style={styles.badges}>
+              <Badge color={d.confidence >= 95 ? COLORS.green : d.confidence >= 70 ? COLORS.accent : COLORS.blue}>
+                {d.confidence || 0}%
+              </Badge>
+              {isGenerating
+                ? <Badge color={COLORS.accent}>Generating...</Badge>
+                : d.completed
+                  ? <Badge color={COLORS.green}>Done</Badge>
+                  : (d.transcript?.length > 0
+                      ? <Badge color={COLORS.accent}>Diagnosis</Badge>
+                      : <Badge color={COLORS.textM}>New</Badge>
+                    )}
+            </View>
           </View>
-          <TouchableOpacity
-            onPress={() => handleDelete(d)}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={styles.trashBtn}
-            accessibilityLabel="Move to Trash"
-          >
-            <Text style={styles.trashIcon}>🗑️</Text>
-          </TouchableOpacity>
-          <View style={styles.badges}>
-            <Badge color={d.confidence >= 95 ? COLORS.green : d.confidence >= 70 ? COLORS.accent : COLORS.blue}>
-              {d.confidence || 0}%
-            </Badge>
-            {isGenerating
-              ? <Badge color={COLORS.accent}>Generating...</Badge>
-              : d.completed
-                ? <Badge color={COLORS.green}>Done</Badge>
-                : (d.transcript?.length > 0
-                    ? <Badge color={COLORS.accent}>Diagnosis</Badge>
-                    : <Badge color={COLORS.textM}>New</Badge>
-                  )}
-          </View>
-        </View>
-        {isGenerating ? (
-          <Text style={styles.generatingText}>
-            Hank is building the work order with parts and steps...
-          </Text>
-        ) : lastMsg ? (
-          <Text numberOfLines={2} style={styles.preview}>
-            {lastMsg.slice(0, 120)}{lastMsg.length > 120 ? "..." : ""}
-          </Text>
-        ) : null}
-        {d.diagnosis && !isGenerating && (
-          <View style={styles.diagBadges}>
-            <Badge color={d.diagnosis.severity === "critical" ? COLORS.red : d.diagnosis.severity === "high" ? COLORS.accent : COLORS.green}>
-              {d.diagnosis.severity?.toUpperCase()} SEVERITY
-            </Badge>
-            <Badge color={COLORS.blue}>
-              ${d.diagnosis.workOrders?.reduce((s, wo) => s + (wo.estimatedTotalCost || 0), 0) || 0} est.
-            </Badge>
-          </View>
-        )}
-      </TouchableOpacity>
+          {isGenerating ? (
+            <Text style={styles.generatingText}>
+              Hank is building the work order with parts and steps...
+            </Text>
+          ) : lastMsg ? (
+            <Text numberOfLines={2} style={styles.preview}>
+              {lastMsg.slice(0, 120)}{lastMsg.length > 120 ? "..." : ""}
+            </Text>
+          ) : null}
+          {d.diagnosis && !isGenerating && (
+            <View style={styles.diagBadges}>
+              <Badge color={d.diagnosis.severity === "critical" ? COLORS.red : d.diagnosis.severity === "high" ? COLORS.accent : COLORS.green}>
+                {d.diagnosis.severity?.toUpperCase()} SEVERITY
+              </Badge>
+              <Badge color={COLORS.blue}>
+                ${d.diagnosis.workOrders?.reduce((s, wo) => s + (wo.estimatedTotalCost || 0), 0) || 0} est.
+              </Badge>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Sibling, NOT nested — touches don't bubble to the card */}
+        <TouchableOpacity
+          onPress={() => handleDelete(d)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.trashBtnAbsolute}
+          accessibilityLabel="Move to Trash"
+          accessibilityRole="button"
+        >
+          <Text style={styles.trashIcon}>🗑️</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -209,8 +231,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 14,
-    padding: 16,
     marginBottom: 10,
+    position: "relative",
+    overflow: "hidden",
+  },
+  cardPressArea: {
+    padding: 16,
   },
   cardTop: {
     flexDirection: "row",
@@ -240,7 +266,19 @@ const styles = StyleSheet.create({
   },
   emptyIcon: { fontSize: 40, marginBottom: 12 },
   emptyText: { fontSize: 14, color: COLORS.textM, fontFamily: FONTS.body },
-  trashBtn: { padding: 6, marginRight: 4 },
+  trashBtnAbsolute: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    zIndex: 10,
+    elevation: 4,
+  },
   trashIcon: { fontSize: 18 },
   cardGenerating: {
     borderColor: COLORS.accent + "80",

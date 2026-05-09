@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Linking, Share, Alert, Animated, Modal, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, GRADIENTS, FONTS, PART_STORES } from "../constants/theme";
 import { useColors } from "../context/ThemeContext";
@@ -819,6 +820,7 @@ export default function DiagResultScreen({ navigation, route }) {
           <Text style={styles.dashLabel}>NEW</Text>
         </TouchableOpacity>
       </View>
+<BottomNav active="Jobs" />
     </SafeAreaView>
   );
 }

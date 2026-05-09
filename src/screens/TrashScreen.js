@@ -8,6 +8,7 @@ import {
   View, Text, TouchableOpacity, FlatList, StyleSheet, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS, FONTS, BORDER_RADIUS } from "../constants/theme";
 import { useColors } from "../context/ThemeContext";
@@ -126,6 +127,7 @@ export default function TrashScreen({ navigation }) {
           )}
         />
       )}
+<BottomNav active="Settings" />
     </SafeAreaView>
   );
 }

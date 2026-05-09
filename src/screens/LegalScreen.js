@@ -3,6 +3,7 @@
 import React from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { COLORS, FONTS, LEGAL } from "../constants/theme";
 import { TERMS_OF_SERVICE, PRIVACY_POLICY } from "../constants/legal";
 
@@ -44,6 +45,7 @@ export default function LegalScreen({ navigation, route }) {
 
         <View style={{ height: 60 }} />
       </ScrollView>
+<BottomNav active="Settings" />
     </SafeAreaView>
   );
 }

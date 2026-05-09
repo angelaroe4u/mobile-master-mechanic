@@ -7,6 +7,7 @@ import {
   TextInput, Modal, Image, KeyboardAvoidingView, Platform, Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, GRADIENTS, FONTS } from "../constants/theme";
@@ -605,6 +606,7 @@ export default function VehicleDetailScreen({ navigation, route }) {
         <FormField label="Notes" value={partForm.notes} onChange={(v) => setPartForm({ ...partForm, notes: v })} placeholder="Brand preference, etc." />
         <TouchableOpacity style={styles.saveBtn} onPress={handleAddPart}><Text style={styles.saveBtnText}>Save Part</Text></TouchableOpacity>
       </BottomModal>
+<BottomNav active="Home" />
     </SafeAreaView>
   );
 

@@ -27,11 +27,22 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const TabIcon = ({ label, focused, color }) => (
-  <View style={{ alignItems: "center" }}>
+  <View style={{ alignItems: "center", justifyContent: "center", minWidth: 64 }}>
     <Text style={{ fontSize: 22 }}>
       {label === "Home" ? "🏠" : label === "Jobs" ? "🔧" : label === "Parts" ? "🔩" : "⚙️"}
     </Text>
-    <Text style={{ fontSize: 9, color, fontWeight: focused ? "800" : "400", marginTop: 2 }}>
+    <Text
+      numberOfLines={1}
+      allowFontScaling={false}
+      style={{
+        fontSize: 10,
+        color,
+        fontWeight: focused ? "800" : "400",
+        marginTop: 2,
+        textAlign: "center",
+        includeFontPadding: false,
+      }}
+    >
       {label}
     </Text>
   </View>

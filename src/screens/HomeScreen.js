@@ -240,25 +240,9 @@ export default function HomeScreen({ navigation, route, user, userPoints = 0 }) 
             </View>
           </TouchableOpacity>
 
-          {/* ── Parts Tracker ─────────────────────────── */}
-          <TouchableOpacity
-            onPress={() => navigation.navigate("SuppliesHub")}
-            style={[styles.menuCard, { borderColor: COLORS.accent + "40" }]}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.menuIcon, { backgroundColor: COLORS.accent + "22", borderWidth: 2, borderColor: "#f97316" }]}>
-              <Image
-                source={require("../../public/images/nav-find-parts.jpg")}
-                style={styles.menuIconImg}
-                resizeMode="cover"
-              />
-            </View>
-            <View style={styles.menuInfo}>
-              <Text style={styles.menuTitle}>Parts Tracker</Text>
-              <Text style={styles.menuSub}> </Text>
-            </View>
-            <Text style={[styles.arrow, { color: COLORS.accent }]}>→</Text>
-          </TouchableOpacity>
+          {/* Parts Tracker removed from Home — parts are tracked per-vehicle
+              on each VehicleDetail screen (and the Parts tab in the bottom
+              nav remains for global access). */}
 
           {/* ── My Garage ────────────────────────────── */}
           <TouchableOpacity

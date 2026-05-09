@@ -5,6 +5,7 @@ import {
   Image, Linking, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { COLORS, FONTS, BORDER_RADIUS } from "../constants/theme";
 import { useColors } from "../context/ThemeContext";
 import { buildHankSystem } from "../constants/hankPrompt";
@@ -841,6 +842,7 @@ export default function DiagChatScreen({ navigation, route }) {
           send(`Explain "${term}" specifically for a ${vehicle}`);
         }}
       />
+<BottomNav active="Jobs" />
     </SafeAreaView>
   );
 }

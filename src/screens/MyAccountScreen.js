@@ -11,6 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, FONTS } from "../constants/theme";
@@ -20,6 +21,7 @@ import {
   presentPaywall,
   presentCustomerCenter,
   restorePurchases,
+  productLabel,
 } from "../services/subscriptions";
 import {
   getUsageState,
@@ -147,10 +149,11 @@ export default function MyAccountScreen({ navigation }) {
                 {isPaid ? "● ACTIVE" : "○ FREE"}
               </Text>
               <Text style={styles.statusTitle}>
-                {isPaid
-                  ? `Mobile Master Mechanic Pro${sub?.type ? " · " + sub.type : ""}`
-                  : "Free Account"}
+                {isPaid ? "Mobile Master Mechanic Pro" : "Free Account"}
               </Text>
+              {isPaid && productLabel(sub?.type) ? (
+                <Text style={styles.statusPlan}>{productLabel(sub?.type)}</Text>
+              ) : null}
               {isPaid && sub?.expiresAt ? (
                 <Text style={styles.statusMeta}>
                   {sub.willRenew ? "Renews" : "Expires"} {new Date(sub.expiresAt).toLocaleDateString()}
@@ -266,6 +269,7 @@ export default function MyAccountScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+<BottomNav active="Settings" />
     </SafeAreaView>
   );
 }
@@ -317,6 +321,14 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontFamily: FONTS.bodyBold,
   },
+  statusPlan: {
+    fontSize: 13,
+    color: COLORS.accent,
+    fontFamily: FONTS.bodyBold,
+    fontWeight: "800",
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
   statusMeta: {
     fontSize: 12,
     color: COLORS.textM,
@@ -359,12 +371,4 @@ const styles = StyleSheet.create({
 
   // ── Footer
   footerLink: { padding: 20, alignItems: "center" },
-  footerLinkText: { fontSize: 12, color: COLORS.blue, fontFamily: FONTS.body, textDecorationLine: "underline" },
-
-  workingOverlay: {
-    position: "absolute",
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    alignItems: "center", justifyContent: "center",
-  },
-});
+  footerLinkText: { fontSize: 12, color:
