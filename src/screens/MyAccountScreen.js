@@ -371,4 +371,12 @@ const styles = StyleSheet.create({
 
   // ── Footer
   footerLink: { padding: 20, alignItems: "center" },
-  footerLinkText: { fontSize: 12, color:
+  footerLinkText: { fontSize: 12, color: COLORS.blue, fontFamily: FONTS.body, textDecorationLine: "underline" },
+
+  workingOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    alignItems: "center", justifyContent: "center",
+  },
+});
