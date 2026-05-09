@@ -21,6 +21,7 @@ import GarageScreen from "../screens/GarageScreen";
 import VehicleDetailScreen from "../screens/VehicleDetailScreen";
 import LegalScreen from "../screens/LegalScreen";
 import TrashScreen from "../screens/TrashScreen";
+import MyAccountScreen from "../screens/MyAccountScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -48,9 +49,10 @@ function MainTabs({ route }) {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
-          paddingTop: 6,
+          // 2x the previous height — easier to tap on tall phones
+          height: 140,
+          paddingBottom: 20,
+          paddingTop: 12,
         },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textD,
@@ -125,9 +127,11 @@ export default function AppNavigator({ isAuthenticated, hasSubscription, hasAcce
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : !hasAcceptedTerms ? (
           <Stack.Screen name="Terms" component={TermsScreen} />
-        ) : !hasSubscription ? (
-          <Stack.Screen name="Subscribe" component={SubscriptionScreen} />
         ) : (
+          // Subscription is no longer an app-level gate. Users can use the
+          // whole app without subscribing; DiagChatScreen does its own paywall
+          // check on mount. SubscriptionScreen is kept registered so it can
+          // still be navigated to manually.
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="DiagChat" component={DiagChatScreen} />
@@ -137,6 +141,8 @@ export default function AppNavigator({ isAuthenticated, hasSubscription, hasAcce
             <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} />
             <Stack.Screen name="Legal" component={LegalScreen} />
             <Stack.Screen name="Trash" component={TrashScreen} />
+            <Stack.Screen name="MyAccount" component={MyAccountScreen} />
+            <Stack.Screen name="Subscribe" component={SubscriptionScreen} />
           </>
         )}
       </Stack.Navigator>

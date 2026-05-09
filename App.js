@@ -22,7 +22,7 @@ import { COLORS } from "./src/constants/theme";
 import { purgeExpired } from "./src/services/trash";
 import { recordBuildIfNew } from "./src/services/buildInfo";
 import { backfillGarageVehicles } from "./src/services/firestore";
-import { initPurchases, checkSubscriptionAccess } from "./src/services/subscriptions";
+import { initPurchases } from "./src/services/subscriptions";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -33,7 +33,10 @@ export default function App() {
   });
 
   const [user, setUser] = useState(null);
-  const [hasSubscription, setHasSubscription] = useState(false);
+  // Subscription is no longer used as a navigation gate (DiagChatScreen
+  // handles its own paywall check). Default true so the navigator just
+  // renders the full app once auth + terms are done.
+  const [hasSubscription] = useState(true);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -43,15 +46,12 @@ export default function App() {
     setUser(mockUser);
     setHasAcceptedTerms(true);
 
-    // Configure RevenueCat with the dev user. Then check entitlement state.
-    // If something fails (e.g. running in Expo Go without native module), we
-    // fall back to letting the user in (DEV MODE is permissive on purpose).
-    initPurchases(mockUser.uid).finally(() => {
-      checkSubscriptionAccess()
-        .then((status) => setHasSubscription(status.isActive || true))   // permissive in dev
-        .catch(() => setHasSubscription(true))
-        .finally(() => setLoading(false));
-    });
+    // Configure RevenueCat with the dev user. Subscription state is now
+    // checked on demand (HomeScreen burst, DiagChat gate, MyAccount status)
+    // — the boot path no longer waits on it before showing the app.
+    initPurchases(mockUser.uid)
+      .catch((e) => console.warn("[purchases] init failed:", e?.message ?? e))
+      .finally(() => setLoading(false));
 
     // Auto-purge trash items older than 14 days
     purgeExpired().catch((e) => console.warn("[trash] purge failed:", e.message));

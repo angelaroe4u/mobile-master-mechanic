@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Linking, Image, Alert, Modal,
+  Linking, Image, Alert, Modal, Share, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -428,12 +428,68 @@ export default function SettingsScreen({ navigation, userPoints = 0 }) {
             <Text style={styles.modalEmoji}>🎁</Text>
             <Text style={styles.modalTitle}>{rewardModal?.title}</Text>
             <Text style={styles.modalDesc}>{rewardModal?.desc}</Text>
-            <View style={styles.modalCodeBox}>
-              <Text style={styles.modalCodeLabel}>YOUR CODE</Text>
-              <Text style={styles.modalCode}>{rewardModal?.code}</Text>
-            </View>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setRewardModal(null)}>
-              <Text style={styles.modalCloseBtnText}>Done</Text>
+
+            {rewardModal?.type === "shopify" && (
+              <>
+                <View style={styles.modalCodeBox}>
+                  <Text style={styles.modalCodeLabel}>USE AT carlotsupplies.com</Text>
+                  <Text selectable={true} selectionColor={COLORS.accent} style={styles.modalCode}>
+                    {rewardModal?.code}
+                  </Text>
+                  <Text style={styles.modalCodeHint}>Long-press the code to copy</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: COLORS.blue }]}
+                  onPress={() => Linking.openURL("https://carlotsupplies.com")}
+                >
+                  <Text style={styles.modalCloseBtnText}>Open carlotsupplies.com →</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {(rewardModal?.type === "bonus_chats" ||
+              rewardModal?.type === "bonus_passes" ||
+              rewardModal?.type === "bonus_months") && (
+              <View style={[styles.modalCodeBox, { backgroundColor: COLORS.green + "15", borderColor: COLORS.green + "40" }]}>
+                <Text style={[styles.modalCodeLabel, { color: COLORS.green }]}>✓ AUTO-APPLIED</Text>
+                <Text style={[styles.modalCode, { color: COLORS.green, fontSize: 14, letterSpacing: 0 }]}>
+                  Already added to your account
+                </Text>
+                <Text style={styles.modalCodeHint}>See My Account → Bonus Credits</Text>
+              </View>
+            )}
+
+            {rewardModal?.type === "share" && (
+              <>
+                <View style={styles.modalCodeBox}>
+                  <Text style={styles.modalCodeLabel}>SHARE CODE</Text>
+                  <Text selectable={true} selectionColor={COLORS.accent} style={styles.modalCode}>
+                    {rewardModal?.code}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: COLORS.blue }]}
+                  onPress={() => {
+                    Share.share({
+                      message: `Try Mobile Master Mechanic — diagnose car problems with an AI assistant. Use code ${rewardModal?.code} for a free trial: https://carlotsupplies.com/pages/mobile-master-mechanic`,
+                    }).catch(() => {});
+                  }}
+                >
+                  <Text style={styles.modalCloseBtnText}>Share with a Friend →</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* Legacy rewards earned before the type field existed */}
+            {!rewardModal?.type && rewardModal?.code && (
+              <View style={styles.modalCodeBox}>
+                <Text style={styles.modalCodeLabel}>YOUR CODE</Text>
+                <Text selectable={true} style={styles.modalCode}>{rewardModal?.code}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity style={[styles.modalCloseBtn, { backgroundColor: COLORS.border, marginTop: 8 }]} onPress={() => setRewardModal(null)}>
+              <Text style={styles.modalCloseBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -547,6 +603,7 @@ const styles = StyleSheet.create({
   },
   modalCodeLabel: { fontSize: 9, color: COLORS.textM, fontFamily: FONTS.bodyBold, textTransform: "uppercase", letterSpacing: 2 },
   modalCode: { fontSize: 22, fontWeight: "900", color: COLORS.accent, fontFamily: FONTS.heading, letterSpacing: 3, marginTop: 4 },
+  modalCodeHint: { fontSize: 9, color: COLORS.textD, fontFamily: FONTS.body, marginTop: 6, fontStyle: "italic" },
   modalCloseBtn: { marginTop: 20, backgroundColor: COLORS.accent, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32 },
   modalCloseBtnText: { color: COLORS.bg, fontWeight: "800", fontSize: 14, fontFamily: FONTS.bodyBold },
 });

@@ -9,6 +9,8 @@ import { COLORS, GRADIENTS, FONTS, LINKS } from "../constants/theme";
 import { useColors } from "../context/ThemeContext";
 import { getDiagnoses } from "../services/firestore";
 import { getVehicles, getDueReminders, dismissReminder } from "../services/garage";
+import { checkSubscriptionAccess } from "../services/subscriptions";
+import { getUsageState, hasActiveBonusWindow } from "../services/hankUsage";
 
 // ─── TIME-BASED GREETING ────────────────────────────────────────────────────
 const getGreeting = () => {
@@ -36,6 +38,9 @@ export default function HomeScreen({ navigation, route, user, userPoints = 0 }) 
   const [diags, setDiags] = useState([]);
   const [vehicleCount, setVehicleCount] = useState(0);
   const [dueReminders, setDueReminders] = useState([]);
+  // Subscription burst: only shown when the user has zero access to Hank
+  // (no paid sub, no bonus credits, no active bonus window).
+  const [showSubscribeBurst, setShowSubscribeBurst] = useState(false);
 
   // Reload diagnoses + garage count + reminders every time this screen comes into focus
   useFocusEffect(
@@ -44,6 +49,26 @@ export default function HomeScreen({ navigation, route, user, userPoints = 0 }) 
       getDiagnoses().then((data) => { if (active) setDiags(data); });
       getVehicles().then((data) => { if (active) setVehicleCount(data.length); });
       getDueReminders().then((data) => { if (active) setDueReminders(data); });
+
+      // Subscription burst: re-check on every focus so the badge clears
+      // immediately after a successful purchase / restore.
+      (async () => {
+        try {
+          const sub = await checkSubscriptionAccess();
+          const usage = await getUsageState();
+          const hasAnyAccess =
+            sub?.isActive ||
+            hasActiveBonusWindow() ||
+            (usage.bonusChats || 0) > 0 ||
+            (usage.bonusPasses || 0) > 0;
+          if (active) setShowSubscribeBurst(!hasAnyAccess);
+        } catch (_e) {
+          // On error, lean toward NOT nagging — the burst only shows when we
+          // know for sure the user has no access.
+          if (active) setShowSubscribeBurst(false);
+        }
+      })();
+
       return () => { active = false; };
     }, [])
   );
@@ -75,6 +100,18 @@ export default function HomeScreen({ navigation, route, user, userPoints = 0 }) 
             colors={["rgba(10,14,26,0.7)", "rgba(10,14,26,0.97)"]}
             style={styles.heroOverlay}
           >
+            {/* ── Subtle Subscribe burst — top-left, only when no Hank access ── */}
+            {showSubscribeBurst && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate("MyAccount")}
+                style={styles.subBurst}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.subBurstStar}>★</Text>
+                <Text style={styles.subBurstText}>Subscribe</Text>
+              </TouchableOpacity>
+            )}
+
             <Text style={styles.heroSubtitle}>AI Vehicle Diagnostics</Text>
             <Text style={styles.heroTitle}>MOBILE</Text>
             <Text style={styles.heroTitleAccent}>MASTER MECHANIC</Text>
@@ -243,6 +280,24 @@ export default function HomeScreen({ navigation, route, user, userPoints = 0 }) 
             <Text style={[styles.arrow, { color: COLORS.blue }]}>→</Text>
           </TouchableOpacity>
 
+          {/* ── My Account ─────────────────────── */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("MyAccount")}
+            style={[styles.menuCard, { borderColor: COLORS.accent + "40" }]}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: COLORS.accent + "22", borderWidth: 2, borderColor: "#f97316" }]}>
+              <Text style={{ fontSize: 26 }}>👤</Text>
+            </View>
+            <View style={styles.menuInfo}>
+              <Text style={styles.menuTitle}>My Account</Text>
+              <Text style={styles.menuSub}>
+                {showSubscribeBurst ? "Subscription, day passes, billing" : "Subscription · billing"}
+              </Text>
+            </View>
+            <Text style={[styles.arrow, { color: COLORS.accent }]}>→</Text>
+          </TouchableOpacity>
+
         </View>
 
         {/* ── Footer ─────────────────────────────────── */}
@@ -296,6 +351,35 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     textAlign: "center",
   },
+  // ── Subscribe burst (top-left of hero, only when no Hank access)
+  // Intentionally subtle — small badge, soft yellow, single tap goes to MyAccount
+  subBurst: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "#facc15",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+    zIndex: 10,
+  },
+  subBurstStar: { fontSize: 11, color: "#1a1a0e" },
+  subBurstText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1a1a0e",
+    fontFamily: FONTS.bodyBold,
+    letterSpacing: 0.5,
+  },
+
   // ── App icon (center hero element)
   appIconRow: { marginTop: 14, alignItems: "center" },
   appIconImg: {

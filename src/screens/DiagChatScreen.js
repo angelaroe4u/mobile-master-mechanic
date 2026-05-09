@@ -13,6 +13,17 @@ import { saveDiagnosis } from "../services/firestore";
 import { awardPoints, POINTS } from "../services/gamification";
 import { findMatchingVehicles, getVehicleHistoryContext, createVehicle } from "../services/garage";
 import { useDiagnosis, EMPTY_SESSION } from "../context/DiagnosisContext";
+import { checkSubscriptionAccess, presentPaywall } from "../services/subscriptions";
+import {
+  getUsageState,
+  hasActiveBonusWindow,
+  computeRemaining,
+  isFreeAllowanceConsumed,
+  markFreeUsed,
+  consumeBonusChat,
+  FREE_QUESTIONS,
+  FREE_REPLIES,
+} from "../services/hankUsage";
 import ConfidenceBar from "../components/ConfidenceBar";
 import SupplyTip from "../components/SupplyTip";
 import GlossaryModal from "../components/GlossaryModal";
@@ -85,11 +96,82 @@ export default function DiagChatScreen({ navigation, route }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const hankScaleAnim = useRef(new Animated.Value(1)).current;
 
+  // ── Subscription / paywall gate state ─────────────────────────────────
+  // hasAccess: paid sub, active bonus window, or one-time bonus credit
+  // gateChecked: true once the on-mount access check has resolved
+  // freeAllowed: user is on their FREE first session (will be gated when limit hit)
+  const [hasAccess, setHasAccess]     = useState(false);
+  const [gateChecked, setGateChecked] = useState(false);
+  const [freeAllowed, setFreeAllowed] = useState(false);
+  const isReplay = !!savedDiag;
+
   // Reset mock index for new sessions
   useEffect(() => {
     if (!savedDiag && (forceNew || !activeSession)) {
       resetHankMock();
     }
+  }, []);
+
+  // ── On mount: figure out whether the user can chat with Hank ──────────
+  // Order of access:
+  //   1. Replay of a saved diagnosis        -> always allowed (no API calls)
+  //   2. Active paid subscription           -> allowed
+  //   3. Active bonus window (rank reward)  -> allowed
+  //   4. One bonus chat credit consumed     -> allowed (single session)
+  //   5. Free allowance not yet used        -> allowed for one session, then
+  //                                            we mark freeUsed and gate them
+  //   6. Otherwise                          -> paywall, navigate back if
+  //                                            dismissed
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (isReplay) {
+        if (!cancelled) { setHasAccess(true); setGateChecked(true); }
+        return;
+      }
+      try {
+        const sub = await checkSubscriptionAccess();
+        if (sub?.isActive) {
+          if (!cancelled) { setHasAccess(true); setGateChecked(true); }
+          return;
+        }
+        if (hasActiveBonusWindow()) {
+          if (!cancelled) { setHasAccess(true); setGateChecked(true); }
+          return;
+        }
+        const usage = await getUsageState();
+        if ((usage.bonusChats || 0) > 0) {
+          const consumed = await consumeBonusChat();
+          if (consumed && !cancelled) {
+            setHasAccess(true); setGateChecked(true);
+            return;
+          }
+        }
+        if (!usage.freeUsed) {
+          if (!cancelled) {
+            setFreeAllowed(true);
+            setHasAccess(true);
+            setGateChecked(true);
+          }
+          return;
+        }
+        // No paid sub, no bonus, free already used -> paywall
+        const result = await presentPaywall();
+        if (cancelled) return;
+        if (result === "PURCHASED" || result === "RESTORED") {
+          setHasAccess(true);
+          setGateChecked(true);
+        } else {
+          navigation.goBack();
+        }
+      } catch (e) {
+        console.warn("[DiagChat] gate check failed:", e?.message ?? e);
+        // Be permissive on error so we never lock a real user out due to bug
+        if (!cancelled) { setHasAccess(true); setGateChecked(true); }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync local diag state → context (only for live sessions, not saved replays)
@@ -296,6 +378,40 @@ export default function DiagChatScreen({ navigation, route }) {
 
   const send = async (text) => {
     if (!text.trim() || loading) return;
+
+    // ── Free-trial paywall trigger ─────────────────────────────────────
+    // If the user is on their free first session and this message would
+    // push them past FREE_QUESTIONS user msgs OR FREE_REPLIES Hank replies,
+    // mark the free allowance used and present the paywall.
+    if (!isReplay && freeAllowed) {
+      const userMsgsAfter = diag.transcript.filter((m) => m.role === "user").length + 1;
+      const hankRepliesAfter = diag.transcript.filter((m) => m.role === "assistant").length + 1;
+      const willExceed = userMsgsAfter > FREE_QUESTIONS || hankRepliesAfter > FREE_REPLIES;
+      const alreadyConsumed = isFreeAllowanceConsumed(diag.transcript);
+      if (alreadyConsumed || willExceed) {
+        await markFreeUsed();
+        try {
+          const result = await presentPaywall();
+          if (result === "PURCHASED" || result === "RESTORED") {
+            setHasAccess(true);
+            setFreeAllowed(false);
+            // Fall through to normal send below
+          } else {
+            Alert.alert(
+              "Subscribe to keep going",
+              "You've used your free Hank diagnosis. Subscribe or grab a 24-hour pass from My Account to continue.",
+              [{ text: "OK", onPress: () => navigation.goBack() }]
+            );
+            return;
+          }
+        } catch (_e) {
+          Alert.alert("Subscribe to keep going", "Open My Account to subscribe or buy a day pass.");
+          navigation.goBack();
+          return;
+        }
+      }
+    }
+
     setInput("");
 
     // ── Intercept yes/no for vehicle matching ───────────────────
@@ -582,6 +698,18 @@ export default function DiagChatScreen({ navigation, route }) {
           }
           ListFooterComponent={
             <>
+              {/* ── Free-trial countdown banner ── */}
+              {!isReplay && freeAllowed && (
+                <View style={styles.freeBanner}>
+                  <Text style={styles.freeBannerTitle}>
+                    Free trial · {Math.max(0, FREE_QUESTIONS - diag.transcript.filter((m) => m.role === "user").length)} question{Math.max(0, FREE_QUESTIONS - diag.transcript.filter((m) => m.role === "user").length) === 1 ? "" : "s"} left
+                  </Text>
+                  <TouchableOpacity onPress={() => navigation.navigate("MyAccount")} activeOpacity={0.8}>
+                    <Text style={styles.freeBannerLink}>Subscribe →</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {loading && (
                 <View style={[styles.msgRow, styles.msgRowAssistant]}>
                   <View style={[styles.bubble, styles.bubbleAssistant]}>
@@ -645,10 +773,11 @@ export default function DiagChatScreen({ navigation, route }) {
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Describe the symptom..."
+            placeholder={gateChecked ? "Describe the symptom..." : "Checking access..."}
             placeholderTextColor={COLORS.textD}
             multiline
             maxLength={1000}
+            editable={gateChecked}
             style={styles.textInput}
             returnKeyType="send"
             blurOnSubmit={false}
@@ -656,10 +785,10 @@ export default function DiagChatScreen({ navigation, route }) {
           />
           <TouchableOpacity
             onPress={() => send(input)}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || !gateChecked}
             style={[
               styles.sendBtn,
-              { backgroundColor: input.trim() && !loading ? COLORS.accent : COLORS.border },
+              { backgroundColor: input.trim() && !loading && gateChecked ? COLORS.accent : COLORS.border },
             ]}
           >
             <Text style={styles.sendIcon}>→</Text>
@@ -811,6 +940,34 @@ const styles = StyleSheet.create({
   termLink: { color: COLORS.accent, textDecorationLine: "underline", fontWeight: "700" },
   dots: { flexDirection: "row", gap: 5, alignItems: "center", paddingVertical: 4 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.accent },
+
+  // ── Free trial banner
+  freeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#facc15" + "18",
+    borderWidth: 1,
+    borderColor: "#facc15" + "60",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginBottom: 6,
+  },
+  freeBannerTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#facc15",
+    fontFamily: FONTS.bodyBold,
+    letterSpacing: 0.4,
+  },
+  freeBannerLink: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.accent,
+    fontFamily: FONTS.bodyBold,
+  },
 
   // ── Empty state
   empty: { alignItems: "center", padding: 32 },
