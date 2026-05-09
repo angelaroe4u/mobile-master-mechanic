@@ -108,7 +108,7 @@ export default function MyAccountScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={["top"]}>
 
-      {/* ── Header ──────────────────────────────────── */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>←</Text>
@@ -118,7 +118,7 @@ export default function MyAccountScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scroll}>
 
-        {/* ── Account info ─────────────────────────── */}
+        {/* Account info */}
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.section}>
           <View style={styles.row}>
@@ -130,7 +130,7 @@ export default function MyAccountScreen({ navigation }) {
           </View>
         </View>
 
-        {/* ── Subscription status hero card ────────── */}
+        {/* Subscription status hero card */}
         <Text style={styles.sectionLabel}>Subscription</Text>
         {loading ? (
           <View style={[styles.section, { padding: 24, alignItems: "center" }]}>
@@ -167,7 +167,7 @@ export default function MyAccountScreen({ navigation }) {
           </View>
         )}
 
-        {/* ── Bonus credits ──────────────────────────── */}
+        {/* Bonus credits */}
         {usage && (usage.bonusChats > 0 || usage.bonusPasses > 0 || bonusActive) && (
           <>
             <Text style={styles.sectionLabel}>Bonus Credits</Text>
@@ -205,7 +205,7 @@ export default function MyAccountScreen({ navigation }) {
           </>
         )}
 
-        {/* ── Actions ────────────────────────────────── */}
+        {/* Actions */}
         <Text style={styles.sectionLabel}>Manage</Text>
         <View style={styles.section}>
           {isPaid ? (
@@ -242,7 +242,7 @@ export default function MyAccountScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Free user education ────────────────────── */}
+        {/* Free user education */}
         {!totalAccess && (
           <View style={[styles.section, styles.eduCard]}>
             <Text style={styles.eduTitle}>What's free vs. Pro?</Text>
@@ -255,7 +255,7 @@ export default function MyAccountScreen({ navigation }) {
           </View>
         )}
 
-        {/* ── Footer link to full settings ───────────── */}
+        {/* Footer link to full settings */}
         <TouchableOpacity
           onPress={() => navigation.navigate("MainTabs", { screen: "Settings" })}
           style={styles.footerLink}
@@ -269,7 +269,7 @@ export default function MyAccountScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
-<BottomNav active="Settings" />
+      <BottomNav active="Settings" />
     </SafeAreaView>
   );
 }
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  // ── Subscription status card
+  // Subscription status card
   statusCard: {
     padding: 20,
     gap: 6,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ── Rows
+  // Rows
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   rowSub:   { fontSize: 11, color: COLORS.textM, fontFamily: FONTS.body, marginTop: 2 },
   rowArrow: { fontSize: 18, color: COLORS.textM },
 
-  // ── Education card
+  // Education card
   eduCard: {
     padding: 16,
     backgroundColor: COLORS.card,
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   eduBold: { color: COLORS.accent, fontWeight: "800", fontFamily: FONTS.bodyBold },
 
-  // ── Footer
+  // Footer
   footerLink: { padding: 20, alignItems: "center" },
   footerLinkText: { fontSize: 12, color: COLORS.blue, fontFamily: FONTS.body, textDecorationLine: "underline" },
 
