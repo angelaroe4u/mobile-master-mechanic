@@ -190,7 +190,7 @@ ABSOLUTE RULES (violations break the app):
    - NO curly braces { }
    - NO square brackets [ ]
    - NO JSON keys like "message": or "confidence":
-   - NO code fences (```json or ```)
+   - NO code fences (\`\`\`json or \`\`\`)
    - NO raw field names from the data block
    - NO pseudo-JSON, no bullet lists formatted as JSON
 
