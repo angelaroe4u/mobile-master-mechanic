@@ -29,7 +29,6 @@ import {
 import ConfidenceBar from "../components/ConfidenceBar";
 import SupplyTip from "../components/SupplyTip";
 import GlossaryModal from "../components/GlossaryModal";
-import ImageAttachButton from "../components/ImageAttachButton";
 
 // ─── HANK MOOD → IMAGE MAPPING ──────────────────────────────────────────────
 const MOOD_IMAGES = {
@@ -79,13 +78,7 @@ export default function DiagChatScreen({ navigation, route }) {
   });
 
   const [input, setInput] = useState("");
-<<<<<<< Updated upstream
   const [pendingImage, setPendingImage] = useState(null); // { uri, base64, mediaType }
-=======
-  // Image the user has attached but not yet sent. Shape: { base64, mediaType, dataUri }
-  // (or null when nothing is queued). Cleared right after send() builds the message.
-  const [pendingImage, setPendingImage] = useState(null);
->>>>>>> Stashed changes
   const [loading, setLoading] = useState(false);
   const [currentMood, setCurrentMood] = useState("neutral");
   const [supplyTip, setSupplyTip] = useState(null);
@@ -387,16 +380,10 @@ export default function DiagChatScreen({ navigation, route }) {
   };
 
   const send = async (text) => {
-<<<<<<< Updated upstream
     const trimmed = (text || "").trim();
     const attachedImage = pendingImage;
     if (loading) return;
     if (!trimmed && !attachedImage) return;
-=======
-    // Allow image-only sends: must have either text or a pending image.
-    if (!text.trim() && !pendingImage) return;
-    if (loading) return;
->>>>>>> Stashed changes
 
     // ── Free-trial paywall trigger ─────────────────────────────────────
     // If the user is on their free first session and this message would
@@ -432,12 +419,6 @@ export default function DiagChatScreen({ navigation, route }) {
     }
 
     setInput("");
-<<<<<<< Updated upstream
-=======
-    // Capture the image attached for THIS message, then clear pending state
-    // before any awaits so a fast double-tap can't double-send the same image.
-    const attachedImage = pendingImage;
->>>>>>> Stashed changes
     setPendingImage(null);
 
     // ── Intercept yes/no for vehicle matching ───────────────────
@@ -473,7 +454,6 @@ export default function DiagChatScreen({ navigation, route }) {
       // If neither yes nor no, fall through to normal send
     }
 
-<<<<<<< Updated upstream
     // Lightweight copy persisted to state (uri only, no base64).
     // Full copy (with base64) is what we hand to callHank this turn only.
     const userMsg = {
@@ -484,21 +464,6 @@ export default function DiagChatScreen({ navigation, route }) {
     const userMsgForApi = attachedImage
       ? { ...userMsg, image: attachedImage }
       : userMsg;
-=======
-    // Build the user message. If an image is attached, content is an array
-    // of Anthropic-style blocks: text first (so the model reads it before
-    // the image), then the image. The Edge Function translates this to
-    // OpenAI's image_url format for the GPT-4o vision call.
-    const userMsg = attachedImage
-      ? {
-          role: "user",
-          content: [
-            ...(text.trim() ? [{ type: "text", text: text.trim() }] : [{ type: "text", text: "[Photo attached - please look at it and tell me what you see.]" }]),
-            { type: "image", source: { type: "base64", media_type: attachedImage.mediaType, data: attachedImage.base64 } },
-          ],
-        }
-      : { role: "user", content: text.trim() };
->>>>>>> Stashed changes
     const newTranscript = [...diag.transcript, userMsg];
     const newApi = [...diag.apiMessages, userMsg];
     const apiPayload = [...diag.apiMessages, userMsgForApi];
@@ -713,24 +678,7 @@ export default function DiagChatScreen({ navigation, route }) {
 
   const renderMessage = ({ item: m }) => {
     const isUser = m.role === "user";
-
-    // Message content can be a plain string (legacy) or an array of
-    // Anthropic-style blocks ({type:"text"} / {type:"image"}). Normalize.
-    let textContent = "";
-    const imageUris = [];
-    if (typeof m.content === "string") {
-      textContent = m.content;
-    } else if (Array.isArray(m.content)) {
-      for (const p of m.content) {
-        if (typeof p === "string") textContent += (textContent ? "\n" : "") + p;
-        else if (p?.type === "text") textContent += (textContent ? "\n" : "") + (p.text || "");
-        else if (p?.type === "image" && p.source?.type === "base64") {
-          imageUris.push(`data:${p.source.media_type || "image/jpeg"};base64,${p.source.data}`);
-        }
-      }
-    }
-
-    const parts = !isUser ? parseTerms(textContent) : [{ type: "text", value: textContent }];
+    const parts = !isUser ? parseTerms(m.content) : [{ type: "text", value: m.content }];
 
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAssistant]}>
@@ -741,7 +689,6 @@ export default function DiagChatScreen({ navigation, route }) {
           isGreenMode && isUser && styles.bubbleUserGreen,
         ]}>
           {!isUser && <Text style={[styles.hankLabel, isGreenMode && { color: COLORS.green }]}>HANK</Text>}
-<<<<<<< Updated upstream
           {isUser && m.image && m.image.uri ? (
             <Image source={{ uri: m.image.uri }} style={styles.msgImage} resizeMode="cover" />
           ) : null}
@@ -749,44 +696,22 @@ export default function DiagChatScreen({ navigation, route }) {
             {parts.map((p, i) =>
               p.type === "term" ? (
                 <Text
-=======
-
-          {imageUris.length > 0 && (
-            <View style={styles.attachedImageRow}>
-              {imageUris.map((uri, i) => (
-                <Image
->>>>>>> Stashed changes
                   key={i}
-                  source={{ uri }}
-                  style={styles.attachedImageThumb}
-                  resizeMode="cover"
-                />
-              ))}
-            </View>
-          )}
-
-          {textContent ? (
-            <Text style={styles.msgText} selectable={true} selectionColor={COLORS.green}>
-              {parts.map((p, i) =>
-                p.type === "term" ? (
-                  <Text
-                    key={i}
-                    style={styles.termLink}
-                    onPress={() => {
-                      const def = diag.keyTerms?.find((t) => t.term === p.value);
-                      handleTermPress(p.value, def?.brief);
-                    }}
-                  >
-                    {p.value}
-                  </Text>
-                ) : p.type === "bold" ? (
-                  <Text key={i} style={{ fontWeight: "800", color: COLORS.text }}>{p.value}</Text>
-                ) : (
-                  <Text key={i}>{p.value}</Text>
-                )
-              )}
-            </Text>
-          ) : null}
+                  style={styles.termLink}
+                  onPress={() => {
+                    const def = diag.keyTerms?.find((t) => t.term === p.value);
+                    handleTermPress(p.value, def?.brief);
+                  }}
+                >
+                  {p.value}
+                </Text>
+              ) : p.type === "bold" ? (
+                <Text key={i} style={{ fontWeight: "800", color: COLORS.text }}>{p.value}</Text>
+              ) : (
+                <Text key={i}>{p.value}</Text>
+              )
+            )}
+          </Text>
         </View>
       </View>
     );
@@ -927,7 +852,6 @@ export default function DiagChatScreen({ navigation, route }) {
           }
         />
 
-<<<<<<< Updated upstream
         {/* ── Pending image preview (above input) ─────── */}
         {pendingImage ? (
           <View style={styles.pendingImageRow}>
@@ -953,50 +877,10 @@ export default function DiagChatScreen({ navigation, route }) {
           >
             <Text style={styles.attachIcon}>📷</Text>
           </TouchableOpacity>
-=======
-        {/* ── Pending-image preview (shown above input when an image is queued) ── */}
-        {pendingImage && (
-          <View style={styles.pendingImageRow}>
-            <Image
-              source={{ uri: pendingImage.dataUri }}
-              style={styles.pendingImageThumb}
-              resizeMode="cover"
-            />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.pendingImageLabel}>Photo attached</Text>
-              <Text style={styles.pendingImageHint}>
-                Add a note (optional), then tap send.
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setPendingImage(null)}
-              style={styles.pendingImageRemove}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel="Remove attached photo"
-            >
-              <Text style={styles.pendingImageRemoveIcon}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── Input bar — pinned above keyboard ─────── */}
-        <View style={styles.inputBar}>
-          <ImageAttachButton
-            disabled={loading || !gateChecked}
-            onPicked={(img) => setPendingImage(img)}
-            onError={(msg) => Alert.alert("Couldn't attach photo", msg)}
-          />
->>>>>>> Stashed changes
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder={
-              !gateChecked
-                ? "Checking access..."
-                : pendingImage
-                  ? "Add a note (optional)..."
-                  : "Describe the symptom..."
-            }
+            placeholder={gateChecked ? "Describe the symptom..." : "Checking access..."}
             placeholderTextColor={COLORS.textD}
             multiline
             maxLength={1000}
@@ -1011,14 +895,7 @@ export default function DiagChatScreen({ navigation, route }) {
             disabled={(!input.trim() && !pendingImage) || loading || !gateChecked}
             style={[
               styles.sendBtn,
-<<<<<<< Updated upstream
               { backgroundColor: (input.trim() || pendingImage) && !loading && gateChecked ? COLORS.accent : COLORS.border },
-=======
-              {
-                backgroundColor:
-                  ((input.trim() || pendingImage) && !loading && gateChecked) ? COLORS.accent : COLORS.border,
-              },
->>>>>>> Stashed changes
             ]}
           >
             <Text style={styles.sendIcon}>→</Text>
