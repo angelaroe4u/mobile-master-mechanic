@@ -5,6 +5,7 @@ import {
   Image, Linking, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { COLORS, FONTS, BORDER_RADIUS } from "../constants/theme";
 import { useColors } from "../context/ThemeContext";
@@ -77,6 +78,7 @@ export default function DiagChatScreen({ navigation, route }) {
   });
 
   const [input, setInput] = useState("");
+  const [pendingImage, setPendingImage] = useState(null); // { uri, base64, mediaType }
   const [loading, setLoading] = useState(false);
   const [currentMood, setCurrentMood] = useState("neutral");
   const [supplyTip, setSupplyTip] = useState(null);
@@ -378,7 +380,10 @@ export default function DiagChatScreen({ navigation, route }) {
   };
 
   const send = async (text) => {
-    if (!text.trim() || loading) return;
+    const trimmed = (text || "").trim();
+    const attachedImage = pendingImage;
+    if (loading) return;
+    if (!trimmed && !attachedImage) return;
 
     // ── Free-trial paywall trigger ─────────────────────────────────────
     // If the user is on their free first session and this message would
@@ -414,14 +419,15 @@ export default function DiagChatScreen({ navigation, route }) {
     }
 
     setInput("");
+    setPendingImage(null);
 
     // ── Intercept yes/no for vehicle matching ───────────────────
-    if (garageMatches.length > 0 && !linkedVehicleId) {
-      const answer = text.trim().toLowerCase();
+    if (garageMatches.length > 0 && !linkedVehicleId && !attachedImage) {
+      const answer = trimmed.toLowerCase();
       const isYes = /^(yes|yeah|yep|yup|y|correct|that's it|thats it|same one|sure)/.test(answer);
       const isNo  = /^(no|nah|nope|n|different|new)/.test(answer);
 
-      const userMsg = { role: "user", content: text.trim() };
+      const userMsg = { role: "user", content: trimmed };
       setDiag((d) => ({ ...d, transcript: [...d.transcript, userMsg] }));
 
       if (isYes) {
@@ -448,9 +454,19 @@ export default function DiagChatScreen({ navigation, route }) {
       // If neither yes nor no, fall through to normal send
     }
 
-    const userMsg = { role: "user", content: text.trim() };
+    // Lightweight copy persisted to state (uri only, no base64).
+    // Full copy (with base64) is what we hand to callHank this turn only.
+    const userMsg = {
+      role: "user",
+      content: trimmed || (attachedImage ? "Here's a photo of what I'm seeing." : ""),
+      ...(attachedImage ? { image: { uri: attachedImage.uri, mediaType: attachedImage.mediaType } } : {}),
+    };
+    const userMsgForApi = attachedImage
+      ? { ...userMsg, image: attachedImage }
+      : userMsg;
     const newTranscript = [...diag.transcript, userMsg];
     const newApi = [...diag.apiMessages, userMsg];
+    const apiPayload = [...diag.apiMessages, userMsgForApi];
     setDiag((d) => ({ ...d, transcript: newTranscript }));
 
     // ── Detect finalization request ───────────────────────────────────────
@@ -459,7 +475,7 @@ export default function DiagChatScreen({ navigation, route }) {
     // doesn't stare at a spinner.
     const isFinalizing =
       (diag.confidence >= 85 || forceAccepted) &&
-      /finalize|generate.*work.?order|wrap.?up|accept/i.test(text);
+      /finalize|generate.*work.?order|wrap.?up|accept/i.test(trimmed);
 
     if (isFinalizing) {
       // Instant: show a message, mark the job as "generating", clear spinner
@@ -482,7 +498,7 @@ export default function DiagChatScreen({ navigation, route }) {
       (async () => {
         try {
           const system = buildHankSystem(diag.vehicle, diag.transcript, diag.tools, vehicleHistoryCtx);
-          const parsed = await callHank(newApi, system);
+          const parsed = await callHank(apiPayload, system);
 
           const assistantMsg = { role: "assistant", content: parsed.message || "Your work order is ready." };
 
@@ -542,7 +558,7 @@ export default function DiagChatScreen({ navigation, route }) {
     setLoading(true);
     try {
       const system = buildHankSystem(diag.vehicle, diag.transcript, diag.tools, vehicleHistoryCtx);
-      const parsed = await callHank(newApi, system);
+      const parsed = await callHank(apiPayload, system);
 
       const assistantMsg = { role: "assistant", content: parsed.message || "Let me think about that..." };
 
@@ -593,6 +609,70 @@ export default function DiagChatScreen({ navigation, route }) {
     }
   };
 
+  // ── Image attach: pick from camera or library ──────────────────────────
+  const mediaTypeFromUri = (uri) => {
+    const lower = (uri || "").toLowerCase();
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".gif")) return "image/gif";
+    return "image/jpeg";
+  };
+
+  const handleImagePicked = (result) => {
+    if (!result || result.canceled) return;
+    const asset = result.assets && result.assets[0];
+    if (!asset || !asset.base64) return;
+    setPendingImage({
+      uri: asset.uri,
+      base64: asset.base64,
+      mediaType: asset.mimeType || mediaTypeFromUri(asset.uri),
+    });
+  };
+
+  const pickFromCamera = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Camera permission needed", "Enable camera access in Settings to take a photo.");
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+      allowsEditing: false,
+    });
+    handleImagePicked(res);
+  };
+
+  const pickFromLibrary = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Photo library permission needed", "Enable photo access in Settings to attach an image.");
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+      allowsEditing: false,
+    });
+    handleImagePicked(res);
+  };
+
+  const openAttachMenu = () => {
+    if (loading || !gateChecked) return;
+    Alert.alert(
+      "Attach photo",
+      "Show Hank a picture of what you're seeing.",
+      [
+        { text: "Take photo", onPress: pickFromCamera },
+        { text: "Choose from library", onPress: pickFromLibrary },
+        { text: "Cancel", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
   // Whether the chat should use green styling (95%+ confidence)
   const isGreenMode = diag.confidence >= 95 && !diag.done;
 
@@ -609,6 +689,9 @@ export default function DiagChatScreen({ navigation, route }) {
           isGreenMode && isUser && styles.bubbleUserGreen,
         ]}>
           {!isUser && <Text style={[styles.hankLabel, isGreenMode && { color: COLORS.green }]}>HANK</Text>}
+          {isUser && m.image && m.image.uri ? (
+            <Image source={{ uri: m.image.uri }} style={styles.msgImage} resizeMode="cover" />
+          ) : null}
           <Text style={styles.msgText} selectable={true} selectionColor={COLORS.green}>
             {parts.map((p, i) =>
               p.type === "term" ? (
@@ -769,8 +852,31 @@ export default function DiagChatScreen({ navigation, route }) {
           }
         />
 
+        {/* ── Pending image preview (above input) ─────── */}
+        {pendingImage ? (
+          <View style={styles.pendingImageRow}>
+            <Image source={{ uri: pendingImage.uri }} style={styles.pendingImageThumb} />
+            <Text style={styles.pendingImageLabel} numberOfLines={1}>Photo attached</Text>
+            <TouchableOpacity
+              onPress={() => setPendingImage(null)}
+              style={styles.pendingImageRemove}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.pendingImageRemoveText}>×</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* ── Input bar — pinned above keyboard ─────── */}
         <View style={styles.inputBar}>
+          <TouchableOpacity
+            onPress={openAttachMenu}
+            disabled={loading || !gateChecked}
+            style={[styles.attachBtn, (loading || !gateChecked) && { opacity: 0.5 }]}
+            accessibilityLabel="Attach photo"
+          >
+            <Text style={styles.attachIcon}>📷</Text>
+          </TouchableOpacity>
           <TextInput
             value={input}
             onChangeText={setInput}
@@ -786,10 +892,10 @@ export default function DiagChatScreen({ navigation, route }) {
           />
           <TouchableOpacity
             onPress={() => send(input)}
-            disabled={!input.trim() || loading || !gateChecked}
+            disabled={(!input.trim() && !pendingImage) || loading || !gateChecked}
             style={[
               styles.sendBtn,
-              { backgroundColor: input.trim() && !loading && gateChecked ? COLORS.accent : COLORS.border },
+              { backgroundColor: (input.trim() || pendingImage) && !loading && gateChecked ? COLORS.accent : COLORS.border },
             ]}
           >
             <Text style={styles.sendIcon}>→</Text>
@@ -1146,6 +1252,62 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendIcon: { fontSize: 18, color: COLORS.white, fontWeight: "800" },
+  attachBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachIcon: { fontSize: 20 },
+  msgImage: {
+    width: 220,
+    height: 165,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: COLORS.card,
+  },
+  pendingImageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    gap: 10,
+  },
+  pendingImageThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+  },
+  pendingImageLabel: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 12,
+    fontFamily: FONTS.body,
+  },
+  pendingImageRemove: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingImageRemoveText: {
+    color: COLORS.text,
+    fontSize: 18,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
 
   // ── Bottom Dashboard — silver/blue toolbar pinned at screen bottom
   bottomDash: {
