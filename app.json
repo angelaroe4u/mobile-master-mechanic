@@ -39,7 +39,7 @@
         "expo-image-picker",
         {
           "cameraPermission": "Camera access is used to photograph vehicle issues for diagnosis.",
-          "photosPermission": "Photo library access lets you attach images to diagnoses."
+          "photosPermission": "Photo library access lets you attach images to diagnoses so Hank can see what you're working on."
         }
       ]
     ],
