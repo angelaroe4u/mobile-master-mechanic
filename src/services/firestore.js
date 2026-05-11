@@ -75,6 +75,17 @@ const ensureVehicleInGarage = async (diag) => {
   }
 };
 
+// Drop heavyweight image.base64 from messages before persisting — Hank already
+// processed the image on its turn, and his reply text is what we'll replay.
+const stripImageBase64 = (msgs) => {
+  if (!Array.isArray(msgs)) return msgs;
+  return msgs.map((m) => {
+    if (!m || !m.image || !m.image.base64) return m;
+    const { base64: _drop, ...rest } = m.image;
+    return { ...m, image: rest };
+  });
+};
+
 export const saveDiagnosis = async (diag) => {
   await ensureLoaded();
   const user = getCurrentUser();
@@ -83,6 +94,13 @@ export const saveDiagnosis = async (diag) => {
     ? diag.startedAt.toISOString()
     : diag.startedAt;
   let safeDiag = safeStartedAt !== diag.startedAt ? { ...diag, startedAt: safeStartedAt } : diag;
+
+  // Strip base64 image data from transcript/apiMessages before persisting.
+  safeDiag = {
+    ...safeDiag,
+    transcript: stripImageBase64(safeDiag.transcript),
+    apiMessages: stripImageBase64(safeDiag.apiMessages),
+  };
 
   // Auto-add the vehicle to the user's garage if appropriate, and link the diagnosis
   const linkedVehicleId = await ensureVehicleInGarage(safeDiag);

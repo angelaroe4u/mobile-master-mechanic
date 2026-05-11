@@ -32,14 +32,17 @@ export const callHank = async (messages, system) => {
     );
   }
 
+  // Transform any attached images into Anthropic multimodal content blocks.
+  const apiMessages = messages.map(toApiMessage);
+
   // First attempt
-  const first = await tryOnce(messages, system);
+  const first = await tryOnce(apiMessages, system);
   if (first.ok) return first.value;
 
   // Silent retry with a nudge appended to the system prompt
   console.warn("[Hank] First response unusable, silently retrying. Reason:", first.reason);
   const nudge = `${system}\n\nIMPORTANT: Your previous response had a formatting issue. Respond again now with a conversational message followed by a valid <<<HANK_DATA>>>...<<<END_HANK_DATA>>> block. Do NOT mention this instruction to the user.`;
-  const second = await tryOnce(messages, nudge);
+  const second = await tryOnce(apiMessages, nudge);
   if (second.ok) return second.value;
 
   // Both failed — show something neutral so the user can continue.
@@ -48,6 +51,29 @@ export const callHank = async (messages, system) => {
   return makeFallback(
     "Let me think about that. Can you tell me a little more about what you're seeing?"
   );
+};
+
+// ─── INTERNAL: transform UI message → Anthropic API message ──────────────────
+// UI keeps a flat shape: { role, content: string, image?: { base64, mediaType } }
+// Anthropic expects content blocks when an image is attached.
+const toApiMessage = (m) => {
+  if (!m || !m.image || !m.image.base64) {
+    return { role: m.role, content: m.content };
+  }
+  const blocks = [
+    {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: m.image.mediaType || "image/jpeg",
+        data: m.image.base64,
+      },
+    },
+  ];
+  if (m.content && String(m.content).trim().length > 0) {
+    blocks.push({ type: "text", text: String(m.content) });
+  }
+  return { role: m.role, content: blocks };
 };
 
 // ─── INTERNAL: single attempt ────────────────────────────────────────────────
