@@ -124,19 +124,21 @@ export default function DiagListScreen({ navigation, route }) {
               <Text style={styles.vehicleName}>{vLabel}</Text>
               <Text style={styles.date}>{fmtDate(d.startedAt)}</Text>
             </View>
-            <View style={styles.badges}>
-              <Badge color={d.confidence >= 95 ? COLORS.green : d.confidence >= 70 ? COLORS.accent : COLORS.blue}>
-                {d.confidence || 0}%
-              </Badge>
-              {isGenerating
-                ? <Badge color={COLORS.accent}>Generating...</Badge>
-                : d.completed
-                  ? <Badge color={COLORS.green}>Done</Badge>
-                  : (d.transcript?.length > 0
-                      ? <Badge color={COLORS.accent}>Diagnosis</Badge>
-                      : <Badge color={COLORS.textM}>New</Badge>
-                    )}
-            </View>
+          </View>
+          {/* Confidence + status moved to their own row so the trash button
+              up in the top-right corner doesn't crowd them. */}
+          <View style={styles.badgesRow}>
+            <Badge color={d.confidence >= 95 ? COLORS.green : d.confidence >= 70 ? COLORS.accent : COLORS.blue}>
+              {d.confidence || 0}%
+            </Badge>
+            {isGenerating
+              ? <Badge color={COLORS.accent}>Generating...</Badge>
+              : d.completed
+                ? <Badge color={COLORS.green}>Done</Badge>
+                : (d.transcript?.length > 0
+                    ? <Badge color={COLORS.accent}>Diagnosis</Badge>
+                    : <Badge color={COLORS.textM}>New</Badge>
+                  )}
           </View>
           {isGenerating ? (
             <Text style={styles.generatingText}>
@@ -241,6 +243,15 @@ const styles = StyleSheet.create({
   vehicleName: { fontSize: 15, fontWeight: "800", color: COLORS.text, fontFamily: FONTS.bodyBold },
   date: { fontSize: 10, color: COLORS.textM, marginTop: 2, fontFamily: FONTS.body },
   badges: { flexDirection: "column", alignItems: "flex-end", gap: 4 },
+  // Confidence + status badges sit on their own row below the title so the
+  // absolutely-positioned trash button in the top-right corner doesn't crowd
+  // them. Wraps on narrow screens.
+  badgesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 10,
+  },
   preview: {
     fontSize: 11,
     color: COLORS.textM,

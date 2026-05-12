@@ -9,7 +9,7 @@ import BottomNav, { BOTTOM_NAV_HEIGHT } from "../components/BottomNav";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS, FONTS, BORDER_RADIUS } from "../constants/theme";
 import { useColors } from "../context/ThemeContext";
-import { getVehicles, createVehicle } from "../services/garage";
+import { getVehicles, createVehicle, deleteVehicle } from "../services/garage";
 
 const fmtDate = (iso) => {
   if (!iso) return "No service yet";
@@ -51,6 +51,26 @@ export default function GarageScreen({ navigation }) {
     setVehicles(data);
   };
 
+  const handleDelete = (v) => {
+    const vLabel = [v.year, v.make, v.model].filter(Boolean).join(" ") || "this vehicle";
+    Alert.alert(
+      "Move to Trash?",
+      `${vLabel} will be moved to Trash and permanently deleted in 14 days. You can restore it from Settings → Trash before then.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Move to Trash",
+          style: "destructive",
+          onPress: async () => {
+            await deleteVehicle(v.id);
+            const data = await getVehicles();
+            setVehicles(data);
+          },
+        },
+      ]
+    );
+  };
+
   const renderVehicle = ({ item: v }) => {
     const vLabel = [v.year, v.make, v.model, v.trim].filter(Boolean).join(" ");
     const serviceCount = v.serviceRecords?.length || 0;
@@ -58,40 +78,54 @@ export default function GarageScreen({ navigation }) {
     const photoCount = v.photos?.length || 0;
     const noteCount = v.notes?.length || 0;
 
+    // NOTE: card and trash button are SIBLINGS (not nested) so the trash tap
+    // doesn't get swallowed by the card's onPress on Android. The trash button
+    // is absolutely positioned over the top-right corner of the card.
     return (
-      <TouchableOpacity
-        style={styles.vehicleCard}
-        onPress={() => navigation.navigate("VehicleDetail", { vehicleId: v.id })}
-        activeOpacity={0.75}
-      >
-        <View style={styles.vehicleTop}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.vehicleName}>{vLabel}</Text>
-            {v.nickname ? <Text style={styles.vehicleNickname}>"{v.nickname}"</Text> : null}
-            {v.mileage ? (
-              <Text style={styles.vehicleMileage}>
-                {parseInt(v.mileage).toLocaleString()} miles
-              </Text>
-            ) : null}
-          </View>
-          <View style={styles.vehicleStats}>
-            <View style={styles.statBadge}>
-              <Text style={styles.statNum}>{serviceCount}</Text>
-              <Text style={styles.statLabel}>{serviceCount === 1 ? "repair" : "repairs"}</Text>
+      <View style={styles.vehicleCardWrap}>
+        <TouchableOpacity
+          style={styles.vehicleCard}
+          onPress={() => navigation.navigate("VehicleDetail", { vehicleId: v.id })}
+          activeOpacity={0.75}
+        >
+          <View style={styles.vehicleTop}>
+            <View style={{ flex: 1, paddingRight: 44 /* leave room for absolute trash button */ }}>
+              <Text style={styles.vehicleName}>{vLabel}</Text>
+              {v.nickname ? <Text style={styles.vehicleNickname}>"{v.nickname}"</Text> : null}
+              {v.mileage ? (
+                <Text style={styles.vehicleMileage}>
+                  {parseInt(v.mileage).toLocaleString()} miles
+                </Text>
+              ) : null}
             </View>
           </View>
-        </View>
 
-        <View style={styles.vehicleBottom}>
-          <Text style={styles.lastServiceLabel}>
-            Last service: {fmtDate(lastService)}
-          </Text>
-          <View style={styles.metaRow}>
-            {photoCount > 0 && <Text style={styles.metaTag}>📷 {photoCount}</Text>}
-            {noteCount > 0 && <Text style={styles.metaTag}>📝 {noteCount}</Text>}
+          <View style={styles.vehicleBottom}>
+            <Text style={styles.lastServiceLabel}>
+              Last service: {fmtDate(lastService)}
+            </Text>
+            <View style={styles.metaRow}>
+              <View style={styles.statBadge}>
+                <Text style={styles.statNum}>{serviceCount}</Text>
+                <Text style={styles.statLabel}>{serviceCount === 1 ? "repair" : "repairs"}</Text>
+              </View>
+              {photoCount > 0 && <Text style={styles.metaTag}>📷 {photoCount}</Text>}
+              {noteCount > 0 && <Text style={styles.metaTag}>📝 {noteCount}</Text>}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+
+        {/* Sibling, NOT nested — touches don't bubble to the card */}
+        <TouchableOpacity
+          onPress={() => handleDelete(v)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.trashBtnAbsolute}
+          accessibilityLabel="Move vehicle to Trash"
+          accessibilityRole="button"
+        >
+          <Text style={styles.trashIcon}>🗑️</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -183,14 +217,31 @@ const styles = StyleSheet.create({
   list: { padding: 16, paddingBottom: 100 },
 
   // ── Vehicle card
+  vehicleCardWrap: {
+    position: "relative",
+    marginBottom: 12,
+  },
   vehicleCard: {
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
   },
+  trashBtnAbsolute: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    zIndex: 10,
+    elevation: 4,
+  },
+  trashIcon: { fontSize: 18 },
   vehicleTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   vehicleName: { fontSize: 17, fontWeight: "900", color: COLORS.text, fontFamily: FONTS.heading, letterSpacing: 1 },
   vehicleNickname: { fontSize: 11, color: COLORS.accent, fontFamily: FONTS.body, marginTop: 2 },
