@@ -16,10 +16,33 @@ import { moveToTrash, TYPES as TRASH } from "./trash";
 let vehicles = [];
 let _vehiclesLoaded = null;
 
+const currentUid = () => getCurrentUser()?.uid || null;
+
+// One-time backfill: any record on disk without a userId is attributed to the
+// currently signed-in user. Multi-user device case: records belonging to other
+// users (already stamped with their uid) are left untouched. Orphans only get
+// claimed once a user is signed in. Returns true if anything changed.
+const claimOrphanVehicles = (uid) => {
+  if (!uid) return false;
+  let changed = false;
+  for (let i = 0; i < vehicles.length; i++) {
+    if (!vehicles[i].userId) {
+      vehicles[i] = { ...vehicles[i], userId: uid };
+      changed = true;
+    }
+  }
+  return changed;
+};
+
 // Lazy-load on first call. Returns a promise that resolves once vehicles are populated from AsyncStorage.
 const ensureLoaded = () => {
   if (!_vehiclesLoaded) {
-    _vehiclesLoaded = loadJSON("garage_vehicles", []).then((v) => { vehicles = v; });
+    _vehiclesLoaded = loadJSON("garage_vehicles", []).then(async (v) => {
+      vehicles = v;
+      if (claimOrphanVehicles(currentUid())) {
+        await saveJSON("garage_vehicles", vehicles);
+      }
+    });
   }
   return _vehiclesLoaded;
 };
@@ -32,13 +55,17 @@ ensureLoaded();
 const genId = () => Math.random().toString(36).slice(2, 10);
 
 // ─── VEHICLE MATCHING ───────────────────────────────────────────────────────
-// Fuzzy match a vehicle description against existing garage vehicles
+// Fuzzy match a vehicle description against the CURRENT USER'S garage vehicles.
+// Returns [] when no user is signed in so we never leak another user's data.
 export const findMatchingVehicles = (vehicleInfo) => {
   if (!vehicleInfo) return [];
+  const uid = currentUid();
+  if (!uid) return [];
   const { year, make, model } = vehicleInfo;
   if (!year && !make && !model) return [];
 
   return vehicles.filter((v) => {
+    if (v.userId !== uid) return false;
     const yearMatch = !year || !v.year || v.year === year;
     const makeMatch = !make || !v.make || v.make.toLowerCase() === make.toLowerCase();
     const modelMatch = !model || !v.model || v.model.toLowerCase() === model.toLowerCase();
@@ -51,12 +78,20 @@ export const findMatchingVehicles = (vehicleInfo) => {
 // ─── CRUD ───────────────────────────────────────────────────────────────────
 export const getVehicles = async () => {
   await ensureLoaded();
-  return [...vehicles].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const uid = currentUid();
+  if (!uid) return [];
+  // User may have signed in after the initial load; run backfill opportunistically.
+  if (claimOrphanVehicles(uid)) await persistVehicles();
+  return vehicles
+    .filter((v) => v.userId === uid)
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 };
 
 export const getVehicleById = async (id) => {
   await ensureLoaded();
-  return vehicles.find((v) => v.id === id) || null;
+  const uid = currentUid();
+  if (!uid) return null;
+  return vehicles.find((v) => v.id === id && v.userId === uid) || null;
 };
 
 export const createVehicle = async (vehicleInfo) => {
