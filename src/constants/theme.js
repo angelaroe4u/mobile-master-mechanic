@@ -167,11 +167,14 @@ export const LEGAL = {
 
 
 // ─── PART STORES ────────────────────────────────────────────────────────────
+// NOTE: CarLot Supplies removed for now — carlotsupplies.com doesn't sell auto
+// parts yet. Add it back to the top of the list (with a "star" icon) once the
+// storefront is live.
 export const PART_STORES = [
-  { name: "CarLot Supplies",  url: "https://carlotsupplies.com/search?q=", color: "#f59e0b", icon: "star" },
   { name: "AutoZone",         url: "https://www.autozone.com/searchresult?searchText=", color: "#ff6600", icon: "tool" },
   { name: "RockAuto",         url: "https://www.rockauto.com/en/catalog/", color: "#e63946", icon: "box" },
+  { name: "O'Reilly Auto",    url: "https://www.oreillyauto.com/search?q=", color: "#d62828", icon: "wrench" },
   { name: "Amazon",           url: "https://www.amazon.com/s?k=", color: "#ff9900", icon: "package" },
   { name: "eBay Motors",      url: "https://www.ebay.com/sch/i.html?_nkw=", color: "#0064d2", icon: "shopping-bag" },
-  { name: "O'Reilly Auto",    url: "https://www.oreillyauto.com/search?q=", color: "#d62828", icon: "wrench" },
+  { name: "Car-Part.com",     url: "https://car-part.com/cgi-bin/search.cgi?userPart=", color: "#0066cc", icon: "search" },
 ];
