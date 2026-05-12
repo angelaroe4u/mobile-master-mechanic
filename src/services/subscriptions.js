@@ -45,7 +45,7 @@ export const productLabel = (productId) => {
 // Android: production key from RevenueCat dashboard (Mobile Master Mechanic Play Store app)
 // iOS: still using test key — swap when iOS app is set up in RevenueCat
 const REVCAT_API_KEY_ANDROID = "goog_KLrPTQLBsmNJrPuRNMAeaqhJiyw";
-const REVCAT_API_KEY_IOS = "test_EVHrgEDqXJmICrIwPpJDelOkjyB"; // TODO: replace with real iOS key
+const REVCAT_API_KEY_IOS = "appl_SAjqIYTRDxqjWnafucJVbeEYlWl";
 
 let _configured = false;
 
