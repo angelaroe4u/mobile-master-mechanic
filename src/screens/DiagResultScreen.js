@@ -285,11 +285,19 @@ export default function DiagResultScreen({ navigation, route }) {
     }
   };
 
-  const getPartUrl = (store, part) => {
-    const q = encodeURIComponent(
-      `${v.year || ""} ${v.make || ""} ${v.model || ""} ${part.searchQuery || part.name}`
-    );
-    return store.url + q;
+  const buildPartQuery = (part) => {
+    const partTerm = part.name || part.searchQuery || "";
+    return [partTerm, v.year, v.make, v.model, v.trim]
+      .filter((s) => s && String(s).trim())
+      .join(" ");
+  };
+
+  const getPartUrl = (store, part) => store.url + encodeURIComponent(buildPartQuery(part));
+
+  const findPart = (part) => {
+    const defaultStore = PART_STORES[0];
+    if (!defaultStore) return;
+    Linking.openURL(getPartUrl(defaultStore, part));
   };
 
   // ── Part Search Modal ──
@@ -410,10 +418,16 @@ export default function DiagResultScreen({ navigation, route }) {
           💬 Return to Diagnosis — Ask Hank Questions
         </Button>
 
-        {/* YouTube help link (Feature #7) */}
+        {/* YouTube help link (Feature #7) — search for the actual repair, not the symptom */}
         <TouchableOpacity
           onPress={() => {
-            const query = encodeURIComponent(`${vLabel} ${d?.title} repair`);
+            const repair = (d?.workOrders || [])
+              .map((wo) => wo.title)
+              .filter(Boolean)
+              .join(" ") || d?.title || "repair";
+            const query = encodeURIComponent(
+              `how to ${repair} ${vLabel}`.replace(/\s+/g, " ").trim()
+            );
             Linking.openURL(`https://www.youtube.com/results?search_query=${query}`);
           }}
           style={styles.youtubeLink}
@@ -481,7 +495,7 @@ export default function DiagResultScreen({ navigation, route }) {
                                 {isArrived && <Text style={styles.partCheckmark}>✓</Text>}
                               </View>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setPartSearch(part)} style={{ flex: 1 }}>
+                            <TouchableOpacity onPress={() => findPart(part)} style={{ flex: 1 }}>
                               <Text style={[styles.partRowName, isArrived && { color: COLORS.green }]}>{part.name}</Text>
                               {part.partNumber && (
                                 <Text style={styles.partRowNum}>#{part.partNumber}</Text>
@@ -490,10 +504,10 @@ export default function DiagResultScreen({ navigation, route }) {
                                 {isArrived ? "Arrived" : "Tap checkbox when arrived"}
                               </Text>
                             </TouchableOpacity>
-                            <View style={styles.partRowRight}>
+                            <TouchableOpacity onPress={() => findPart(part)} style={styles.partRowRight}>
                               <Text style={styles.partRowCost}>${part.estimatedCost}</Text>
                               <Text style={styles.partRowFind}>Find →</Text>
-                            </View>
+                            </TouchableOpacity>
                           </View>
                         );
                       })}
