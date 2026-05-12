@@ -104,16 +104,10 @@ export default function DiagListScreen({ navigation, route }) {
     // NOTE: card and trash button are SIBLINGS (not nested) so the trash
     // tap doesn't get swallowed by the card's onPress on Android. The trash
     // button is absolutely positioned over the top-right corner of the card.
-    // Tapping a job card -> go to the vehicle's main screen (where the user
-    // can see all maintenance, fluids, parts, and the linked work orders).
-    // For brand-new diagnoses that haven't been linked to a garage vehicle
-    // yet (no make+model captured, or no real content), fall back to the
-    // chat so the user can finish entering vehicle info. While Hank is
-    // still generating, keep the gentle "still working" alert.
     const handleCardTap = () => {
       if (isGenerating) return handleGeneratingTap(d);
-      if (d.linkedVehicleId) {
-        return navigation.navigate("VehicleDetail", { vehicleId: d.linkedVehicleId });
+      if (d.diagnosis) {
+        return navigation.navigate("DiagResult", { diag: d });
       }
       return navigation.navigate("DiagChat", { diag: d });
     };
