@@ -286,7 +286,7 @@ export default function DiagResultScreen({ navigation, route }) {
   };
 
   const buildPartQuery = (part) => {
-    const partTerm = part.searchQuery || part.name || "";
+    const partTerm = part.name || part.searchQuery || "";
     return [partTerm, v.year, v.make, v.model, v.trim]
       .filter((s) => s && String(s).trim())
       .join(" ");
