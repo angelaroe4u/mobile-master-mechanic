@@ -16,10 +16,47 @@ import { moveToTrash, TYPES as TRASH } from "./trash";
 let vehicles = [];
 let _vehiclesLoaded = null;
 
+// Current user ID (will be the real Supabase/Firebase uid once auth is wired in;
+// today returns the DEV MODE mockUser uid).
+const currentUid = () => {
+  try { return getCurrentUser()?.uid || null; }
+  catch { return null; }
+};
+
+// Filter a vehicle list down to the rows that belong to the current user.
+// Vehicles missing userId entirely are treated as visible to the current user
+// (they get auto-claimed in claimOrphanVehicles on next write).
+const visibleToCurrentUser = (vs) => {
+  const uid = currentUid();
+  if (!uid) return vs;
+  return vs.filter((v) => !v.userId || v.userId === uid);
+};
+
+// One-time migration: strip the legacy dev seed vehicle ("veh-001": 2019 Toyota
+// Camry) from any user's local storage. This vehicle was previously hard-coded
+// into the in-memory store on every app load — testers ended up with someone
+// else's Camry in their garage. Safe no-op if it isn't there.
+const stripLegacySeed = (vs) => vs.filter((v) => v.id !== "veh-001");
+
+// Tag any pre-existing vehicles without a userId so they belong to the current
+// user. Runs once on load. Persists if anything changed.
+const claimOrphanVehicles = async () => {
+  const uid = currentUid();
+  if (!uid) return;
+  let changed = false;
+  vehicles = vehicles.map((v) => {
+    if (!v.userId) { changed = true; return { ...v, userId: uid }; }
+    return v;
+  });
+  if (changed) await persistVehicles();
+};
+
 // Lazy-load on first call. Returns a promise that resolves once vehicles are populated from AsyncStorage.
 const ensureLoaded = () => {
   if (!_vehiclesLoaded) {
-    _vehiclesLoaded = loadJSON("garage_vehicles", []).then((v) => { vehicles = v; });
+    _vehiclesLoaded = loadJSON("garage_vehicles", [])
+      .then((v) => { vehicles = stripLegacySeed(v); })
+      .then(() => claimOrphanVehicles());
   }
   return _vehiclesLoaded;
 };
@@ -38,7 +75,7 @@ export const findMatchingVehicles = (vehicleInfo) => {
   const { year, make, model } = vehicleInfo;
   if (!year && !make && !model) return [];
 
-  return vehicles.filter((v) => {
+  return visibleToCurrentUser(vehicles).filter((v) => {
     const yearMatch = !year || !v.year || v.year === year;
     const makeMatch = !make || !v.make || v.make.toLowerCase() === make.toLowerCase();
     const modelMatch = !model || !v.model || v.model.toLowerCase() === model.toLowerCase();
@@ -51,12 +88,19 @@ export const findMatchingVehicles = (vehicleInfo) => {
 // ─── CRUD ───────────────────────────────────────────────────────────────────
 export const getVehicles = async () => {
   await ensureLoaded();
-  return [...vehicles].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  return visibleToCurrentUser(vehicles)
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 };
 
 export const getVehicleById = async (id) => {
   await ensureLoaded();
-  return vehicles.find((v) => v.id === id) || null;
+  const v = vehicles.find((v) => v.id === id);
+  if (!v) return null;
+  // Don't expose vehicles that belong to other users.
+  const uid = currentUid();
+  if (uid && v.userId && v.userId !== uid) return null;
+  return v;
 };
 
 export const createVehicle = async (vehicleInfo) => {
@@ -719,86 +763,11 @@ export const getVehicleHistoryContext = async (vehicleId) => {
   return `PREVIOUS REPAIRS ON THIS VEHICLE (${vehicle.year} ${vehicle.make} ${vehicle.model}):\n${lines.join("\n")}`;
 };
 
-// ─── SEED DEV DATA ──────────────────────────────────────────────────────────
-// Pre-populate one vehicle so the garage isn't empty in dev
-vehicles.push({
-  id: "veh-001",
-  userId: "dev-user-001",
-  year: "2019",
-  make: "Toyota",
-  model: "Camry",
-  trim: "SE",
-  mileage: "87000",
-  transmission: "automatic",
-  nickname: "",
-  photos: [],
-  notes: [{ id: "note-001", text: "Oil change due at 90k", createdAt: "2026-04-10T12:00:00Z" }],
-  serviceRecords: [
-    {
-      id: "sr-001",
-      diagId: "diag-001",
-      woTitle: "P0420 — Catalytic Converter Replacement",
-      diagnosis: { title: "P0420 — Catalytic Converter Efficiency Below Threshold", severity: "medium", summary: "Catalytic converter efficiency below threshold. Replacement required." },
-      workOrder: {
-        estimatedTotalCost: 250, estimatedHours: 2.5, difficulty: "moderate",
-        parts: [
-          { name: "Catalytic Converter (Aftermarket)", partNumber: "CAT-2019TC", estimatedCost: 185 },
-          { name: "Exhaust Gasket Set", partNumber: "EGS-101", estimatedCost: 15 },
-        ],
-        steps: [
-          "Lift vehicle and secure on jack stands",
-          "Remove heat shield above catalytic converter",
-          "Disconnect O2 sensors upstream and downstream",
-          "Unbolt catalytic converter from exhaust manifold and mid-pipe",
-          "Install new catalytic converter with new gaskets",
-          "Reconnect O2 sensors and torque to spec",
-          "Reinstall heat shield",
-          "Start engine, verify no exhaust leaks, clear codes with OBD2 scanner",
-        ],
-      },
-      stepsCompleted: { "0": true, "1": true, "2": true, "3": true, "4": true, "5": true, "6": true, "7": true },
-      stepCompletionDates: { "7": "2026-04-11T16:30:00Z" },
-      completedAt: "2026-04-11T16:30:00Z",
-      actualCost: 235,
-      notes: "Used aftermarket converter. Codes cleared, no return after 50 miles.",
-      photos: [],
-      vehicle: { year: "2019", make: "Toyota", model: "Camry", trim: "SE", mileage: "87000" },
-      createdAt: "2026-04-10T12:00:00Z",
-    },
-  ],
-  oilChanges: [
-    { id: "oil-001", date: "2026-03-01T10:00:00Z", mileage: "84500", oilType: "Full Synthetic", oilWeight: "0W-20", filterBrand: "Toyota OEM", notes: "Dealer service", createdAt: "2026-03-01T10:00:00Z" },
-    { id: "oil-002", date: "2025-09-15T10:00:00Z", mileage: "79000", oilType: "Full Synthetic", oilWeight: "0W-20", filterBrand: "Mobil 1", notes: "", createdAt: "2025-09-15T10:00:00Z" },
-  ],
-  tireInfo: {
-    frontSize: "215/55R17",
-    rearSize: "215/55R17",
-    frontPressure: "35",
-    rearPressure: "35",
-    sparePressure: "60",
-    brand: "Michelin Defender",
-    installedDate: "2025-06-01",
-    installedMileage: "72000",
-  },
-  fluids: {
-    engineOil: "0W-20 Full Synthetic",
-    coolant: "Toyota Super Long Life (Pink)",
-    brakeFluid: "DOT 3",
-    transmissionFluid: "Toyota WS ATF",
-    powerSteering: "Electronic (no fluid)",
-    washerFluid: "Standard -20°F",
-  },
-  frequentParts: [
-    { id: "fp-001", name: "Engine Air Filter", partNumber: "17801-0V020", lastReplacedDate: "2026-01-15", lastReplacedMileage: "82000", intervalMiles: "15000", cost: "18", notes: "", createdAt: "2026-01-15T10:00:00Z" },
-    { id: "fp-002", name: "Cabin Air Filter", partNumber: "87139-06080", lastReplacedDate: "2026-01-15", lastReplacedMileage: "82000", intervalMiles: "15000", cost: "14", notes: "", createdAt: "2026-01-15T10:00:00Z" },
-    { id: "fp-003", name: "Wiper Blades (Pair)", partNumber: "", lastReplacedDate: "2025-11-01", lastReplacedMileage: "80000", intervalMiles: "10000", cost: "24", notes: "Rain-X Latitude", createdAt: "2025-11-01T10:00:00Z" },
-  ],
-  reminders: [
-    { id: "rem-001", type: "oil_change", label: "Oil Change Due", dueMileage: "89500", dueDate: "2026-09-01", notes: "0W-20 Full Synthetic", dismissed: false, createdAt: "2026-03-01T10:00:00Z" },
-  ],
-  createdAt: "2026-04-10T12:00:00Z",
-  updatedAt: "2026-04-11T16:30:00Z",
-});
+// NOTE: A legacy dev seed vehicle ("veh-001": 2019 Toyota Camry) used to be
+// hard-coded into the in-memory store here. It has been removed — testers were
+// seeing it as "someone else's car" in their garage. stripLegacySeed() in
+// ensureLoaded() also removes it from any user's local AsyncStorage on first
+// load after upgrade.
 
 // ─── RESET ───────────────────────────────────────────────────────────────────
 // Wipes all in-memory garage data AND clears it from AsyncStorage.
