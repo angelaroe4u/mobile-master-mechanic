@@ -167,14 +167,16 @@ export const LEGAL = {
 
 
 // ─── PART STORES ────────────────────────────────────────────────────────────
-// NOTE: CarLot Supplies removed for now — carlotsupplies.com doesn't sell auto
-// parts yet. Add it back to the top of the list (with a "star" icon) once the
-// storefront is live.
+// Each entry's `url` is appended with an encoded query of the form
+// "<part name> <year> <make> <model> <trim>" (built in DiagResultScreen's
+// buildPartQuery). carlotsupplies.com is intentionally NOT in this list —
+// CarLot Supplies is an auto-supplies business, not a parts retailer.
 export const PART_STORES = [
-  { name: "AutoZone",         url: "https://www.autozone.com/searchresult?searchText=", color: "#ff6600", icon: "tool" },
-  { name: "RockAuto",         url: "https://www.rockauto.com/en/catalog/", color: "#e63946", icon: "box" },
-  { name: "O'Reilly Auto",    url: "https://www.oreillyauto.com/search?q=", color: "#d62828", icon: "wrench" },
-  { name: "Amazon",           url: "https://www.amazon.com/s?k=", color: "#ff9900", icon: "package" },
-  { name: "eBay Motors",      url: "https://www.ebay.com/sch/i.html?_nkw=", color: "#0064d2", icon: "shopping-bag" },
-  { name: "Car-Part.com",     url: "https://car-part.com/cgi-bin/search.cgi?userPart=", color: "#0066cc", icon: "search" },
+  { name: "AutoZone",            url: "https://www.autozone.com/searchresult?searchText=",                    color: "#ff6600", icon: "tool" },
+  { name: "O'Reilly Auto Parts", url: "https://www.oreillyauto.com/search?q=",                                color: "#d62828", icon: "wrench" },
+  { name: "Advance Auto Parts",  url: "https://shop.advanceautoparts.com/find?searchTerm=",                   color: "#e10600", icon: "tool" },
+  { name: "NAPA Auto Parts",     url: "https://www.napaonline.com/en/search?text=",                           color: "#003896", icon: "wrench" },
+  { name: "RockAuto",            url: "https://www.google.com/search?q=site%3Arockauto.com+",                 color: "#e63946", icon: "box" },
+  { name: "Amazon",              url: "https://www.amazon.com/s?k=",                                          color: "#ff9900", icon: "package" },
+  { name: "eBay Motors",         url: "https://www.ebay.com/sch/i.html?_sacat=6000&_nkw=",                    color: "#0064d2", icon: "shopping-bag" },
 ];
