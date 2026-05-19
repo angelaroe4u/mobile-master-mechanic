@@ -758,6 +758,13 @@ export default function DiagChatScreen({ navigation, route }) {
         </View>
       </View>
 
+      {/* ── How-to-use one-liner: always visible under Hank's photo ── */}
+      <View style={styles.howToStrip}>
+        <Text style={styles.howToText}>
+          Tell me what's going on. Answer a few questions. When you see the green work order, your diagnosis is complete.
+        </Text>
+      </View>
+
       {/* ── Messages + Input — keyboard-aware ───────── */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -825,7 +832,7 @@ export default function DiagChatScreen({ navigation, route }) {
                     style={styles.viewWorkOrderCta}
                   >
                     <Text style={styles.viewWorkOrderTitle}>← RETURN TO WORK ORDER</Text>
-                    <Text style={styles.viewWorkOrderSub}>Your work order is ready. Tap to go back.</Text>
+                    <Text style={styles.viewWorkOrderSub}>Your work order is ready. Tap here.</Text>
                   </TouchableOpacity>
                   <Text style={styles.safetyBlurb}>
                     ⚠ Verify all suggested info against your vehicle's manual before use. AI guidance is not professional advice.
@@ -1015,6 +1022,22 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingBottom: 10,
+  },
+
+  // ── How-to-use strip (just under Hank's photo)
+  howToStrip: {
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  howToText: {
+    fontSize: 11,
+    color: COLORS.textM,
+    fontFamily: FONTS.body,
+    lineHeight: 16,
+    textAlign: "center",
   },
 
   // ── Messages

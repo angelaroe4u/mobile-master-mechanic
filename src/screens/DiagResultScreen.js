@@ -294,10 +294,12 @@ export default function DiagResultScreen({ navigation, route }) {
 
   const getPartUrl = (store, part) => store.url + encodeURIComponent(buildPartQuery(part));
 
+  // Open the retailer-picker modal (defined below in the partSearch render path)
+  // instead of jumping straight to one retailer. Users want to choose where to
+  // shop — AutoZone, O'Reilly, Advance, NAPA, RockAuto, Amazon, eBay Motors.
   const findPart = (part) => {
-    const defaultStore = PART_STORES[0];
-    if (!defaultStore) return;
-    Linking.openURL(getPartUrl(defaultStore, part));
+    if (!part) return;
+    setPartSearch(part);
   };
 
   // ── Part Search Modal ──
